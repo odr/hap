@@ -1,0 +1,24 @@
+Default: &defaults
+  user: p
+  password: p
+  host: localhost
+  port: 5432
+  database: p
+  poolsize: 10
+
+Development:
+  <<: *defaults
+
+Testing:
+  database: p
+  <<: *defaults
+
+Staging:
+  database: p_staging
+  poolsize: 100
+  <<: *defaults
+
+Production:
+  database: p_production
+  poolsize: 100
+  <<: *defaults

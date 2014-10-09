@@ -1,0 +1,34 @@
+Hello: Hello
+
+Dictionary: Dictionary
+Save: Save
+Saved: Saved...
+Error err@Text: Error: #{err}
+
+User: User
+Users: Users
+Name: Name
+Password: Password
+Emails: Emails
+Email: Email
+Ident: Ident
+Verkey: Verification key
+
+ListDic dic@Text: List of #{dic}
+Id: Key
+
+#pager
+RecCount cnt@Int: Count of record: #{show cnt}
+PageCount cnt@Int: Count of pages: #{show cnt}
+PageSize: Size of page:
+Page: Page
+GoToFirstBtn: Go to the first record
+PrevPageBtn: Previous page
+NextPageBtn: Next page
+GoToLastBtn: Go to the last record
+Of: of
+
+#errors
+InvalidKey dic@Text val@Text err@Text: The key "#{val}" for dictionary "#{dic}" is invalid. An error: "#{err}"
+NotFound dic@Text val@Text: Not found key "#{val}" for dictionary "#{dic}"
+
