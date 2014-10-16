@@ -1,4 +1,4 @@
-exec: ../dist/build/p/p
+exec: ../dist/build/hap/hap
 args:
     - production
 host: <<HOST-NOT-SET>>

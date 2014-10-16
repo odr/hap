@@ -5,7 +5,7 @@ build-type:        Simple
 
 Flag dev
     Description:   Turn on development settings, like auto-reload templates.
-    Default:       False
+    Default:       True
 
 Flag library-only
     Description:   Build for use with "yesod devel"
