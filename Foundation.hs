@@ -23,8 +23,8 @@ import Text.Hamlet (hamletFile)
 import Yesod.Form.Jquery(YesodJquery(..))
 import qualified Data.Text as T
 
-import DicTypes(SomeDictionary)
-import Dics()
+import Hap.Dictionary.DicTypes(SomeDictionary)
+import Hap.Dictionary.Dics()
 
 -- This is where we define all of the routes in our application. For a full
 -- explanation of the syntax, please see:
@@ -89,7 +89,7 @@ instance Yesod App where
     -- expiration dates to be set far in the future without worry of
     -- users receiving stale content.
     addStaticContent =
-        addStaticContentExternal minifym genFileName Settings.staticDir (StaticR . flip StaticRoute [])
+        addStaticContentExternal (if development then Right else minifym) genFileName Settings.staticDir (StaticR . flip StaticRoute [])
       where
         -- Generate a unique filename based on the content itself
         genFileName lbs

@@ -44,6 +44,7 @@ withEntity (dic :: Dictionary a) v produce = getMessageRender >>= withMR
       where
         dicName = mr $ dDisplayName dic
 
+showErr :: Text -> AppMessage -> Handler Html
 showErr dicName mess = do
     setMessageWidget [whamlet|
         <h3>_{mess}

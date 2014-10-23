@@ -22,8 +22,9 @@ library
                     Handler.Home
                     Import_
                     Foundation_
-                    DicTypes
-                    Dics
+                    Hap.Dictionary.DicTypes
+                    Hap.Dictionary.FieldFormI
+                    Hap.Dictionary.Dics
                     Utils
                     Handler.List
                     Handler.Edit

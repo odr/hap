@@ -1,6 +1,6 @@
 {-# LANGUAGE ExistentialQuantification, RankNTypes, ScopedTypeVariables, FlexibleInstances, RecordWildCards, LambdaCase #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module DicTypes where
+module Hap.Dictionary.DicTypes where
 import Import_
 import Control.Monad(foldM)
 import Data.Monoid
@@ -8,6 +8,7 @@ import Foundation_(App, AppMessage)
 import Data.Typeable(Typeable, typeRep, Proxy(..))
 import qualified Data.Text as T
 import Utils(showEF)
+--import Foundation()
 
 instance (PersistEntity a) => Default (Key a) where
     def = either (error . T.unpack . ("Can't create def for Key. " <>))
@@ -62,7 +63,7 @@ data DicField e = forall t. FieldForm e t => DicField
 getDBName :: (PersistEntity e) => DicField e -> Text
 getDBName (DicField {..}) = unDBName $ fieldDB $ persistFieldDef dfEntityField
 
-class (HasDictionary e) => FieldForm e a where
+class (PersistEntity e) => FieldForm e a where
     fieldAForm
         :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m, MonadLogger m)
         => [e] -> FieldSettings (HandlerSite m) -> Maybe a -> AForm m a
@@ -70,18 +71,7 @@ class (HasDictionary e) => FieldForm e a where
         :: (RenderMessage site FormMessage, HandlerSite m ~ site, MonadHandler m, MonadLogger m)
         => [e] -> FieldSettings (HandlerSite m) -> Maybe a -> MForm m (FormResult a, FieldView site)
 
--- isPK :: (PersistEntity a, PersistEntity b) => Key a -> [b] -> Bool
--- isPK k (_::[b]) = on (==) (takeWhile (/='{')) (show k) $ show(def :: Key b)
-
-instance (HasDictionary e) => FieldForm e Text where
-    fieldAForm _ = areq textField
-    fieldForm  _ = mreq textField
-
-instance (HasDictionary e) => FieldForm e (Maybe Text) where
-    fieldAForm _ = aopt textField
-    fieldForm  _ = mopt textField
-
-instance (HasDictionary e, HasDictionary a) => FieldForm e (Key a) where
+instance (PersistEntity e, HasDictionary a) => FieldForm e (Key a) where
     fieldAForm _ fs ma
         | show (def :: Key e) == show (def :: Key a)
             = fmap (fromMaybe (error "Invalid Key") . fromPathPiece . T.pack . show)
@@ -93,7 +83,7 @@ instance (HasDictionary e, HasDictionary a) => FieldForm e (Key a) where
             $ mreq intField fs (fmap (read . T.unpack . toPathPiece) ma :: Maybe Integer)
         | otherwise = mreq (dicKeyField ([] :: [a])) fs ma
 
-instance (HasDictionary e, HasDictionary a) => FieldForm e (Maybe (Key a)) where
+instance (PersistEntity e, HasDictionary a) => FieldForm e (Maybe (Key a)) where
     fieldAForm _ fs ma
         | show (def :: Key e) == show (def :: Key a)
             = fmap (>>= fromPathPiece . T.pack . show)
@@ -121,22 +111,25 @@ dicKeyField (x :: [a]) = Field
     , fieldView = \idAttr nameAttr otherAttrs eResult _ -> do
         either
             (setMessage . toHtml)
-            (\_ -> [whamlet|
+            (\k -> [whamlet|
                     <span .ui-single-line>
                         <input id=#{idAttr} name=#{nameAttr} *{otherAttrs}>
-                        <a href="" .ui-chooser-view-button>
-                        <a href="" .ui-chooser-detail-button>
+                        <a href="" .ui-chooser-view-button>v
+                        <a href=#{editR k} target=_blank .ui-chooser-detail-button>d
                 |]
+                -- @{EditR (SomeDictionary x) k}
             )
             eResult
     , fieldEnctype = UrlEncoded
     }
+  where
+    editR k = "/edit/" <> show (SomeDictionary x) <> "/" <> T.unpack (toPathPiece k)
 
-dicFieldAForm :: (HasDictionary e, HandlerSite m ~ App, MonadHandler m, MonadLogger m)
+dicFieldAForm :: (PersistEntity e, HandlerSite m ~ App, MonadHandler m, MonadLogger m)
      => DicField e -> Entity e -> AForm m (Entity e)
 dicFieldAForm (DicField (ef :: EntityField e t) fs _ _) ent = fieldLens ef (fieldAForm ([]::[e]) fs . Just) ent
 
-dicFieldForm :: (HasDictionary e, HandlerSite m ~ App, MonadHandler m, MonadLogger m)
+dicFieldForm :: (PersistEntity e, HandlerSite m ~ App, MonadHandler m, MonadLogger m)
     => DicField e -> Entity e -> MForm m (FormResult (Entity e), [FieldView App] -> [FieldView App])
 dicFieldForm df = aFormToForm . dicFieldAForm df
 

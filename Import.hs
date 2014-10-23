@@ -9,7 +9,7 @@ import Settings             as Import
 import Settings.Development as Import
 import Settings.StaticFiles as Import
 
-import DicTypes             as Import
+import Hap.Dictionary.DicTypes   as Import
 
 pureLayout :: Widget -> Handler Html
 pureLayout widget = do

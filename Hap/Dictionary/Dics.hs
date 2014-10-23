@@ -1,14 +1,16 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Dics where
+module Hap.Dictionary.Dics where
 
 import Import_
-import DicTypes
+import Hap.Dictionary.DicTypes
+import Hap.Dictionary.FieldFormI()
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Model
 import Foundation_(AppMessage(..))
 import Data.Char(toLower)
 import Safe(readMay)
+-- import FieldForm()
 
 instance Read SomeDictionary where
     readsPrec _ = \s -> [(maybe (error "Can't parse Dictionary") id $ M.lookup (map toLower s) dics, "")]

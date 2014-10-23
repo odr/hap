@@ -20,6 +20,17 @@ getListR sd@(SomeDictionary (_::[a])) = do
             ^{pager (ListR sd) cnt}
             <div #lstTab>
             |]
+        toWidget [julius|
+                function del(urlVal) {
+                    $.ajax({
+                        type: "DELETE"
+                        , url: urlVal
+                        , success: function(msg){
+                            alert("Data Deleted: " + msg);
+                        }
+                    });
+                }
+            |]
   where
     dic = getDictionary :: Dictionary a
 
@@ -36,8 +47,8 @@ postListR sd@(SomeDictionary (_ :: [a])) = do
                         . sortByPattern getDBName fst (dFields dic)
                         . (\(PersistMap m) -> m) . toPersistValue . entityVal
                     ) res
-    $logDebug $ T.unlines $ map (T.pack . show) recs
-                    -- <th bgcolor=blue>_{MsgId}
+    -- $logDebug $ T.unlines $ map (T.pack . show) recs
+    --                 -- <th bgcolor=blue>_{MsgId}
     widgetToHtml $ do
         [whamlet|
             <table width=100% border=1px>
@@ -46,6 +57,7 @@ postListR sd@(SomeDictionary (_ :: [a])) = do
                         <a href=@{EditR sd (toPersistValue defKey)}>+
                     $forall df <- dFields dic
                         <th  bgcolor=blue>_{maybe (fsLabel (dfSettings df)) SomeMessage (dfShort df)}
+                    <th align=center bgcolor=blue width=20px>-
                 $forall (key,rec) <- recs
                     <tr>
                         <td align=center>
@@ -53,6 +65,8 @@ postListR sd@(SomeDictionary (_ :: [a])) = do
                         <td .key>#{showPersistField key}
                         $forall x <- rec
                                 <td align=left>#{x}
+                        <td align=center>
+                            <button onclick="alert("del");del(@{EditR sd (toPersistValue key)})">-
             |]
   where
     dic = getDictionary :: Dictionary a
@@ -127,5 +141,5 @@ pager route cnt = do
             addPager($(".pager"), $('#lstTab'), "@{route}", #{Number $ fromIntegral cnt});
             |]
   where
-    pgsz = 10::Int
+    pgsz = 15::Int
 
