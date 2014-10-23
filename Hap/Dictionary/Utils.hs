@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Utils where
+module Hap.Dictionary.Utils where
 
 import Import_
 import qualified Data.Text as T

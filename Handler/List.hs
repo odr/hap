@@ -3,7 +3,7 @@ module Handler.List(getListR, postListR) where
 
 import Import
 import Yesod(RenderRoute(..))
-import Utils
+import Hap.Dictionary.Utils(showPersistValue, sortByPattern, showPersistField)
 import qualified Data.Text as T
 --import qualified Data.Map as M
 import Safe(readMay)

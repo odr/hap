@@ -24,8 +24,9 @@ library
                     Foundation_
                     Hap.Dictionary.DicTypes
                     Hap.Dictionary.FieldFormI
+                    Hap.Dictionary.EDSL
                     Hap.Dictionary.Dics
-                    Utils
+                    Hap.Dictionary.Utils
                     Handler.List
                     Handler.Edit
 
