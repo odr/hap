@@ -8,6 +8,7 @@ import System.Locale(defaultTimeLocale)
 import Data.Time(formatTime)
 import Data.Ord(comparing)
 import Data.List(sortBy)
+import Control.Monad(liftM2)
 
 showPersistValue :: PersistValue -> Text
 showPersistValue (PersistText v)              = v
@@ -51,3 +52,10 @@ sortByPattern :: Ord a => (b -> a) -> (c -> a) -> [b] -> [c] -> [c]
 sortByPattern f g ps = sortBy (comparing $ flip M.lookup m . g)
   where
     m = M.fromList $ zip (map f ps) [(1::Int)..]
+
+getRoot :: (MonadHandler f, Yesod (HandlerSite f)) => f Text
+getRoot = case approot of
+    ApprootMaster f -> fmap f getYesod
+    ApprootStatic t -> return t
+    ApprootRelative -> return ".."
+    ApprootRequest f -> liftM2 f getYesod (fmap reqWaiRequest getRequest)

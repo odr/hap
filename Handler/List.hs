@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, RecordWildCards #-}
 module Handler.List(getListR, postListR) where
 
 import Import
@@ -8,15 +8,15 @@ import qualified Data.Text as T
 --import qualified Data.Map as M
 import Safe(readMay)
 
-getListR :: SomeDictionary -> Handler Html
-getListR sd@(SomeDictionary (_::[a])) = do
+getListR :: SomeDictionary' -> Handler Html
+getListR sd@(SomeDictionary (_::Handler [a])) = do
     cnt <- runDB $ count ([] :: [Filter a])
     $logDebug $ T.pack $ "cnt = " ++ show cnt
     defaultLayout $ do
-        (mr :: AppMessage -> Text) <- getMessageRender
-        setTitleI $ MsgListDic $ mr $ dDisplayName dic
+        mr <- getMessageRender
+        setTitleI $ MsgListDic $ mr dn
         [whamlet|
-            <h1>_{MsgDictionary} "_{dDisplayName dic}"
+            <h1>_{MsgDictionary} "{mr $ dn dic}"
             ^{pager (ListR sd) cnt}
             <div #lstTab>
             |]
@@ -32,10 +32,12 @@ getListR sd@(SomeDictionary (_::[a])) = do
                 }
             |]
   where
-    dic = getDictionary :: Dictionary a
+    dn  = case getDictionary :: Dictionary Handler a of
+        (Dictionary {..}) -> dDisplayName
 
-postListR :: SomeDictionary -> Handler Html
-postListR sd@(SomeDictionary (_ :: [a])) = do
+
+postListR :: SomeDictionary' -> Handler Html
+postListR sd@(SomeDictionary (_ :: Handler [a])) = do
     -- addHeader "Access-Control-Allow-Origin" "*"
     -- addHeader "Access-Control-Allow-Methods" "POST"
     rds <- fmap fst runRequestBody
@@ -69,7 +71,7 @@ postListR sd@(SomeDictionary (_ :: [a])) = do
                             <button onclick="alert("del");del(@{EditR sd (toPersistValue key)})">-
             |]
   where
-    dic = getDictionary :: Dictionary a
+    dic = getDictionary :: Dictionary Handler a
     defKey = def :: Key a
 
 pager :: Route App -> Int -> Widget

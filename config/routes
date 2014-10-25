@@ -6,5 +6,5 @@
 
 / HomeR GET POST
 
-/list/#SomeDictionary ListR GET POST
-/edit/#SomeDictionary/#PersistValue EditR GET POST DELETE
+/list/#SomeDictionary' ListR GET POST
+/edit/#SomeDictionary'/#PersistValue EditR GET POST DELETE

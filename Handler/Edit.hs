@@ -1,17 +1,17 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Handler.Edit(getEditR, postEditR, deleteEditR) where
-
+    
 import Import
 import qualified Data.Text as T
 
-getEditR :: SomeDictionary -> PersistValue -> Handler Html
-getEditR sd@(SomeDictionary (_::[a])) v = withEntity (getDictionary :: Dictionary a) v produce
+getEditR :: SomeDictionary Handler -> PersistValue -> Handler Html
+getEditR sd@(SomeDictionary (_ :: Handler [a])) v = withEntity (getDictionary :: Dictionary Handler a) v produce
   where
     produce dicName ent = do
         (widget, enctype) <- generateFormPost $ renderTable $ dictionaryAForm $ Just ent
         editForm (dicName <> ": " <> toPathPiece v) sd v widget enctype
 
-editForm :: Text -> SomeDictionary -> PersistValue -> Widget -> Enctype -> Handler Html
+editForm :: Text -> SomeDictionary Handler -> PersistValue -> Widget -> Enctype -> Handler Html
 editForm title sd v widget enctype =
     defaultLayout $ do
         setTitle $ toHtml title
@@ -26,8 +26,10 @@ editForm title sd v widget enctype =
         |]
 
 
-withEntity :: (HasDictionary e) => Dictionary e -> PersistValue -> (Text -> Entity e -> Handler Html) -> Handler Html
-withEntity (dic :: Dictionary a) v produce = getMessageRender >>= withMR
+withEntity :: (HasDictionary Handler e) 
+            => Dictionary Handler e -> PersistValue -> (Text -> Entity e -> Handler Html) 
+            -> Handler Html
+withEntity (dic :: Dictionary Handler a) v produce = getMessageRender >>= withMR
   where
     ek = fromPersistValue v :: Either Text (Key a)
     withMR mr
@@ -52,9 +54,9 @@ showErr dicName mess = do
     defaultLayout $ do
         setTitle $ toHtml $ dicName <> " - error"
 
-postEditR :: SomeDictionary -> PersistValue -> Handler Html
-postEditR sd@(SomeDictionary (_::[a])) v
-    = withEntity (getDictionary :: Dictionary a) v produce
+postEditR :: SomeDictionary Handler -> PersistValue -> Handler Html
+postEditR sd@(SomeDictionary (_:: Handler [a])) v
+    = withEntity (getDictionary :: Dictionary Handler a) v produce
   where
     produce _ ent = do
         ((result, _), _) <- runFormPost $ renderTable $ dictionaryAForm $ Just ent
@@ -84,10 +86,10 @@ postEditR sd@(SomeDictionary (_::[a])) v
                     |]
                 redirect $ EditR sd v
 
-deleteEditR :: SomeDictionary -> PersistValue -> Handler Html
-deleteEditR sd@(SomeDictionary (_::[a])) v = do
+deleteEditR :: SomeDictionary Handler -> PersistValue -> Handler Html
+deleteEditR sd@(SomeDictionary (_ :: Handler [a])) v = do
     mr <- getMessageRender
-    let dicName = mr $ dDisplayName (getDictionary :: Dictionary a)
+    let dicName = mr $ dDisplayName (getDictionary :: Dictionary Handler a)
     either  ( showErr dicName . MsgInvalidKey dicName (toPathPiece v) )
             ( \k -> runDB (delete k) >> redirect (ListR sd) )
             (fromPersistValue v :: Either Text (Key a))

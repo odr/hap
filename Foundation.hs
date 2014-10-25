@@ -1,31 +1,38 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Foundation (module Foundation) where
 
-import Prelude
+import Import_
+
+-- import Control.Arrow((&&&))
+import Data.Char(toLower)
+-- import Data.Default.Generics(Default)
+import qualified Data.Map as M
+
+import qualified Data.Text as T
+-- import Database.Persist.Sql (SqlBackend)
+import Text.Hamlet (hamletFile)
+import Text.Jasmine (minifym)
 import Yesod
-import Foundation_  as Foundation
-import Yesod.Static
 import Yesod.Auth
-import Yesod.Auth.BrowserId
+import qualified Yesod.Auth.BrowserId as BID
 import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
--- import Network.HTTP.Client.Conduit (Manager, HasHttpManager (getHttpManager))
+import Yesod.Form.Jquery(YesodJquery(..))
+import Yesod.Static
+
+import Hap.Dictionary.DicTypes(SomeDictionary, HasMapDict(..), HasDictionary)
+import Hap.Dictionary.EDSL
+import Hap.Dictionary.FieldFormI()
+
+import Foundation_  as Foundation
+import Model
+import           Settings (widgetFile, Extra (..))
 import qualified Settings
 import Settings.Development (development)
--- import qualified Database.Persist
-import Database.Persist.Sql (SqlBackend)
 import Settings.StaticFiles
-import Settings (widgetFile, Extra (..))
-import Model
-import Text.Jasmine (minifym)
-import Text.Hamlet (hamletFile)
--- import Yesod.Core.Types (Logger)
-import Yesod.Form.Jquery(YesodJquery(..))
-import qualified Data.Text as T
 
-import Hap.Dictionary.DicTypes(SomeDictionary)
-import Hap.Dictionary.Dics()
-
+type SomeDictionary' = SomeDictionary (HandlerT App IO)
 -- This is where we define all of the routes in our application. For a full
 -- explanation of the syntax, please see:
 -- http://www.yesodweb.com/book/routing-and-handlers
@@ -136,7 +143,7 @@ instance YesodAuth App where
                     }
 
     -- You can add other plugins like BrowserID, email or OAuth here
-    authPlugins _ = [authBrowserId def]
+    authPlugins _ = [BID.authBrowserId BID.def]
 
     authHttpManager = httpManager
 
@@ -150,3 +157,29 @@ getExtra = fmap (appExtra . settings) getYesod
 -- wiki:
 --
 -- https://github.com/yesodweb/yesod/wiki/Sending-email
+
+instance HasMapDict (HandlerT App IO) where
+    getMapDict =  M.fromList $ map (map toLower . show &&& id)
+        [ SomeDictionary (return [] :: Handler [User])
+        , SomeDictionary (return [] :: Handler [Email])
+        ]
+instance Default User
+instance HasDictionary (HandlerT App IO) User where
+    getDictionary
+        = mkDic MsgUsers
+            [ fld UserId
+            , fld UserIdent     # label MsgIdent
+            , fld UserPassword  # label MsgPassword
+            ]
+            # recShowField UserIdent
+
+instance Default Email
+instance HasDictionary (HandlerT App IO) Email where
+    getDictionary
+        = mkDic MsgEmails
+            [ fld EmailId
+            , fld EmailUser     # label MsgUser
+            , fld EmailEmail    # label MsgEmail
+            , fld EmailVerkey   # label MsgVerkey
+                                # readonly
+            ]

@@ -6,23 +6,22 @@ module Hap.Dictionary.EDSL
 	) where
 
 import Import_
-import Foundation_(AppMessage)
+-- import Foundation_(AppMessage)
 import Data.Typeable(Typeable)
 import Hap.Dictionary.Utils(showEF)
 import Hap.Dictionary.DicTypes
 -- import Hap.Dictionary.DicTypes as EDSL(HasDictionary)
 
 ------------------- DicEDSL -----------------------------
-mkDic   :: (PersistEntity a, Typeable a, PersistEntityBackend a ~ SqlBackend)
-        => AppMessage -> [DicField a] -> Dictionary a
+mkDic   :: (RenderMessage (HandlerSite m) mess, PersistEntity a, Typeable a, PersistEntityBackend a ~ SqlBackend)
+        => mess -> [DicField m a] -> Dictionary m a
 mkDic m flds = Dictionary
-    { dDisplayName  = m
+    { dDisplayName  = SomeMessage m
     , dFields       = flds
     , dShowFunc     = showEF persistIdField
     }
 
-fld :: (PersistEntity a, FieldForm a t)
-    => EntityField a t -> DicField a
+fld :: (PersistEntity a, FieldForm m a t) => EntityField a t -> DicField m a
 fld ef = DicField
     { dfEntityField = ef
     , dfSettings    = "" { fsLabel = hn }
@@ -33,23 +32,25 @@ fld ef = DicField
   where
     hn = SomeMessage $ unHaskellName $ fieldHaskell $ persistFieldDef ef
 
-label :: AppMessage -> DicField a -> DicField a
-label mess f = f
-    { dfSettings = (dfSettings f) { fsLabel = SomeMessage mess }
-    , dfShort = Just $ fromMaybe mess $ dfShort f
+label :: RenderMessage (HandlerSite m) mess => mess -> DicField m a -> DicField m a
+label mess DicField {..} = DicField
+    { dfSettings = dfSettings { fsLabel = SomeMessage mess }
+    , dfShort = Just $ maybe (SomeMessage mess) SomeMessage dfShort
+    , ..
     }
-shortLabel :: AppMessage -> DicField a -> DicField a
-shortLabel mess f = f { dfShort = Just mess }
 
-hidden :: DicField a -> DicField a
+shortLabel :: RenderMessage (HandlerSite m) mess => mess -> DicField m a -> DicField m a
+shortLabel mess DicField {..} = DicField { dfShort = Just $ SomeMessage mess, .. }
+
+hidden :: DicField m a -> DicField m a
 hidden f = f { dfKind = Hidden }
 
-readonly :: DicField a -> DicField a
+readonly :: DicField m a -> DicField m a
 readonly f = f { dfKind = ReadOnly <> dfKind f }
 
-recShowField :: PersistEntity e => EntityField e t -> Dictionary e -> Dictionary e
+recShowField :: PersistEntity e => EntityField e t -> Dictionary m e -> Dictionary m e
 recShowField ef dic = dic { dShowFunc = showEF ef }
 
-showField :: PersistEntity e => DicField e -> Entity e -> Text
+showField :: PersistEntity e => DicField m e -> Entity e -> Text
 showField (DicField {..}) = showEF dfEntityField
 
