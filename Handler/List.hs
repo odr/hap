@@ -1,14 +1,22 @@
-{-# LANGUAGE ScopedTypeVariables, RecordWildCards #-}
 module Handler.List(getListR, postListR) where
 
+{-
 import Import
 import Yesod(RenderRoute(..))
 import Hap.Dictionary.Utils(showPersistValue, sortByPattern, showPersistField)
 import qualified Data.Text as T
 --import qualified Data.Map as M
 import Safe(readMay)
+-}
+import Hap.Dictionary.Types(SomeDictionary)
+import qualified  Hap.Dictionary.ListHandler as LH
+import Import_
+-- import Foundation_(App)
+import Foundation
 
-getListR :: SomeDictionary' -> Handler Html
+getListR :: SomeDictionary App -> HandlerT App IO Html
+getListR = LH.getListR
+{-
 getListR sd@(SomeDictionary (_::Handler [a])) = do
     cnt <- runDB $ count ([] :: [Filter a])
     $logDebug $ T.pack $ "cnt = " ++ show cnt
@@ -34,9 +42,11 @@ getListR sd@(SomeDictionary (_::Handler [a])) = do
   where
     dn  = case getDictionary :: Dictionary Handler a of
         (Dictionary {..}) -> dDisplayName
+-}
 
-
-postListR :: SomeDictionary' -> Handler Html
+postListR :: SomeDictionary App -> HandlerT App IO Html
+postListR = LH.postListR
+{-
 postListR sd@(SomeDictionary (_ :: Handler [a])) = do
     -- addHeader "Access-Control-Allow-Origin" "*"
     -- addHeader "Access-Control-Allow-Methods" "POST"
@@ -144,4 +154,4 @@ pager route cnt = do
             |]
   where
     pgsz = 15::Int
-
+-}

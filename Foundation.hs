@@ -15,24 +15,56 @@ import Text.Hamlet (hamletFile)
 import Text.Jasmine (minifym)
 import Yesod
 import Yesod.Auth
+import Network.HTTP.Client.Conduit (Manager, HasHttpManager (getHttpManager))
 import qualified Yesod.Auth.BrowserId as BID
 import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
 import Yesod.Form.Jquery(YesodJquery(..))
 import Yesod.Static
+import qualified Database.Persist
+import Yesod.Core.Types (Logger)
 
-import Hap.Dictionary.DicTypes(SomeDictionary, HasMapDict(..), HasDictionary)
+import Hap.Dictionary.Hap(Hap, HapMessage)
+import Hap.Dictionary.Types(HasMapDict(..))
 import Hap.Dictionary.EDSL
 import Hap.Dictionary.FieldFormI()
 
-import Foundation_  as Foundation
+-- import Foundation_  as Foundation
 import Model
 import           Settings (widgetFile, Extra (..))
 import qualified Settings
 import Settings.Development (development)
 import Settings.StaticFiles
 
-type SomeDictionary' = SomeDictionary (HandlerT App IO)
+-- | The site argument for your application. This can be a good place to
+-- keep settings and values requiring initialization before your application
+-- starts running, such as database connections. Every handler will have
+-- access to the data present here.
+data App = App
+    { settings :: AppConfig DefaultEnv Extra
+    , getStatic :: Static -- ^ Settings for static file serving.
+    , connPool :: Database.Persist.PersistConfigPool Settings.PersistConf -- ^ Database connection pool.
+    , httpManager :: Manager
+    , persistConfig :: Settings.PersistConf
+    , appLogger :: Logger
+    , getHap :: Hap
+    }
+
+instance HasHttpManager App where
+    getHttpManager = httpManager
+
+-- Set up i18n messages. See the message folder.
+mkMessage "App" "messages" "en"
+
+-- This instance is required to use forms. You can modify renderMessage to
+-- achieve customized and internationalized form validation messages.
+instance RenderMessage App FormMessage where
+    renderMessage _ _ = defaultFormMessage
+
+instance RenderMessage App HapMessage where
+    renderMessage = renderMessage . getHap
+
+type SomeDictionary' = SomeDictionary App
 -- This is where we define all of the routes in our application. For a full
 -- explanation of the syntax, please see:
 -- http://www.yesodweb.com/book/routing-and-handlers
@@ -158,13 +190,13 @@ getExtra = fmap (appExtra . settings) getYesod
 --
 -- https://github.com/yesodweb/yesod/wiki/Sending-email
 
-instance HasMapDict (HandlerT App IO) where
+instance HasMapDict App where
     getMapDict =  M.fromList $ map (map toLower . show &&& id)
-        [ SomeDictionary (return [] :: Handler [User])
-        , SomeDictionary (return [] :: Handler [Email])
+        [ someDic ([] :: [User])
+        , someDic ([] :: [Email])
         ]
 instance Default User
-instance HasDictionary (HandlerT App IO) User where
+instance HasDictionary App User where
     getDictionary
         = mkDic MsgUsers
             [ fld UserId
@@ -174,7 +206,7 @@ instance HasDictionary (HandlerT App IO) User where
             # recShowField UserIdent
 
 instance Default Email
-instance HasDictionary (HandlerT App IO) Email where
+instance HasDictionary App Email where
     getDictionary
         = mkDic MsgEmails
             [ fld EmailId

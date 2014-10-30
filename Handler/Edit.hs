@@ -1,10 +1,19 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Handler.Edit(getEditR, postEditR, deleteEditR) where
     
+{-
 import Import
 import qualified Data.Text as T
+-}
+import Hap.Dictionary.Types(SomeDictionary)
+import qualified Hap.Dictionary.EditHandler as EH
+import Import_
+-- import Foundation_(App)
+import Foundation
 
-getEditR :: SomeDictionary Handler -> PersistValue -> Handler Html
+getEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Html
+getEditR = EH.getEditR
+{-
 getEditR sd@(SomeDictionary (_ :: Handler [a])) v = withEntity (getDictionary :: Dictionary Handler a) v produce
   where
     produce dicName ent = do
@@ -53,8 +62,10 @@ showErr dicName mess = do
         <hr>|]
     defaultLayout $ do
         setTitle $ toHtml $ dicName <> " - error"
-
-postEditR :: SomeDictionary Handler -> PersistValue -> Handler Html
+-}
+postEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Html
+postEditR = EH.postEditR
+{-
 postEditR sd@(SomeDictionary (_:: Handler [a])) v
     = withEntity (getDictionary :: Dictionary Handler a) v produce
   where
@@ -85,11 +96,14 @@ postEditR sd@(SomeDictionary (_:: Handler [a])) v
                         <hr>
                     |]
                 redirect $ EditR sd v
-
-deleteEditR :: SomeDictionary Handler -> PersistValue -> Handler Html
+-}
+deleteEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Html
+deleteEditR = EH.deleteEditR
+{-
 deleteEditR sd@(SomeDictionary (_ :: Handler [a])) v = do
     mr <- getMessageRender
     let dicName = mr $ dDisplayName (getDictionary :: Dictionary Handler a)
     either  ( showErr dicName . MsgInvalidKey dicName (toPathPiece v) )
             ( \k -> runDB (delete k) >> redirect (ListR sd) )
             (fromPersistValue v :: Either Text (Key a))
+-}

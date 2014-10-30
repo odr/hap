@@ -21,11 +21,13 @@ library
                     Settings.Development
                     Handler.Home
                     Import_
-                    Foundation_
-                    Hap.Dictionary.DicTypes
+                    -- Foundation_
+                    Hap.Dictionary.Hap
+                    Hap.Dictionary.EditHandler
+                    Hap.Dictionary.ListHandler
+                    Hap.Dictionary.Types
                     Hap.Dictionary.FieldFormI
                     Hap.Dictionary.EDSL
-                    Hap.Dictionary.Dics
                     Hap.Dictionary.Utils
                     Handler.List
                     Handler.Edit
@@ -77,6 +79,7 @@ library
                  , monad-logger                  >= 0.3        && < 0.4
                  , fast-logger                   >= 2.2        && < 2.3
                  , wai-logger                    >= 2.2        && < 2.3
+                 , exceptions                   >=0.6
                  , containers                   >= 0.5
                  , safe                         >= 0.3
                  , old-locale                   >= 1.0

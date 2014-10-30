@@ -8,7 +8,7 @@ import          Yesod                   as Import_ hiding (Route (..))
 import          Database.Persist.Sql    as Import_ (SqlBackend)
 
 import          Control.Applicative     as Import_ (pure, (<$>), (<*>))
--- import          Control.Monad           as Import_
+import          Control.Monad           as Import_ (foldM, (>=>))
 import 			Control.Arrow			as Import_ ((&&&), (***), second, first)
 import          Data.Text               as Import_ (Text)
 

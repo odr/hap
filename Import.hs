@@ -9,7 +9,7 @@ import Settings             as Import
 import Settings.Development as Import
 import Settings.StaticFiles as Import
 
-import Hap.Dictionary.DicTypes   as Import
+import Hap.Dictionary.Types   as Import
 
 pureLayout :: Widget -> Handler Html
 pureLayout widget = do
@@ -24,7 +24,7 @@ pureLayout widget = do
         |]
 
 widgetToHtml :: Widget -> Handler Html
-widgetToHtml = (>>= withUrlRenderer) . fmap pageBody . widgetToPageContent
+widgetToHtml = fmap pageBody . widgetToPageContent >=> withUrlRenderer
 
 setMessageWidget :: Widget -> Handler ()
-setMessageWidget = (>>=setMessage) . widgetToHtml
+setMessageWidget = widgetToHtml >=> setMessage

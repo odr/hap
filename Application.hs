@@ -26,6 +26,7 @@ import Yesod.Core.Types (loggerSet, Logger (Logger))
 
 -- Import all relevant handler modules here.
 -- Don't forget to add new modules to your cabal file!
+import Hap.Dictionary.Hap(Hap(..))
 import Handler.Home
 import Handler.List
 import Handler.Edit
@@ -72,7 +73,7 @@ makeFoundation conf = do
     (getter, _) <- clockDateCacher
 
     let logger = Yesod.Core.Types.Logger loggerSet' getter
-        foundation = App conf s p manager dbconf logger
+        foundation = App conf s p manager dbconf logger Hap
 
     -- Perform database migration using our application's logging settings.
     runLoggingT
