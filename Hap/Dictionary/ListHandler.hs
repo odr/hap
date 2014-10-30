@@ -72,7 +72,7 @@ postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
                         $forall x <- rec
                                 <td align=left>#{x}
                         <td align=center>
-                            <button onclick="alert("del");del(#{editR root sd key})">-
+                            <button onclick=alert('del');del('#{editR root sd (toPersistValue key)}')>-
             |]
   where
     dic = getDictionary :: Dictionary m a
@@ -114,13 +114,13 @@ pager route cnt = do
     toWidget
         [julius|
             function addPager(pager$, tab$, addr, cntRec) {
-                var bFst = $('#goFstBtn')[0];
-                var bLst = $('#goLstBtn')[0];
-                var bNext = $('#goNextBtn')[0];
-                var bPrev = $('#goPrevBtn')[0];
-                var ePn = $('#pgnum')[0];
-                var ePs = $('#pgsz')[0];
-                var ePc = $('#pgcnt')[0];
+                var bFst = $('#goFstBtn', pager$)[0];
+                var bLst = $('#goLstBtn', pager$)[0];
+                var bNext = $('#goNextBtn', pager$)[0];
+                var bPrev = $('#goPrevBtn', pager$)[0];
+                var ePn = $('#pgnum', pager$)[0];
+                var ePs = $('#pgsz', pager$)[0];
+                var ePc = $('#pgcnt', pager$)[0];
 
                 function loadData() {
                     var ps=parseInt(ePs.value);
