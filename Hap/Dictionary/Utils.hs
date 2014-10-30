@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, FlexibleContexts, OverloadedStrings #-}
 module Hap.Dictionary.Utils where
 
 import Import_
@@ -59,3 +59,10 @@ getRoot = case approot of
     ApprootStatic t -> return t
     ApprootRelative -> return ".."
     ApprootRequest f -> liftM2 f getYesod (fmap reqWaiRequest getRequest)
+
+widgetToHtml :: (Yesod site) => WidgetT site IO () -> HandlerT site IO Html
+widgetToHtml = fmap pageBody . widgetToPageContent >=> withUrlRenderer
+
+setMessageWidget :: (Yesod site) => WidgetT site IO () -> HandlerT site IO ()
+setMessageWidget = widgetToHtml >=> setMessage
+

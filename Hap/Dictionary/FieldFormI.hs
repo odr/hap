@@ -4,15 +4,15 @@ module Hap.Dictionary.FieldFormI where
 	
 -- , ExistentialQuantification, RankNTypes, ScopedTypeVariables, RecordWildCards, LambdaCase	
 
-import Hap.Dictionary.DicTypes(HasDictionary(..), FieldForm(..))
+import Hap.Dictionary.Types(FieldForm(..))
 import Import_
 --import Database.Persist(PersistEntity)
 
-instance (HasDictionary m e) => FieldForm m e Text where
+instance (RenderMessage m FormMessage) => FieldForm m e Text where
     fieldAForm _ = areq textField
     fieldForm  _ = mreq textField
 
-instance (HasDictionary m e) => FieldForm m e (Maybe Text) where
+instance (RenderMessage m FormMessage) => FieldForm m e (Maybe Text) where
     fieldAForm _ = aopt textField
     fieldForm  _ = mopt textField
 

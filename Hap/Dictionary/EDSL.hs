@@ -9,11 +9,11 @@ import Import_
 -- import Foundation_(AppMessage)
 import Data.Typeable(Typeable)
 import Hap.Dictionary.Utils(showEF)
-import Hap.Dictionary.DicTypes
+import Hap.Dictionary.Types
 -- import Hap.Dictionary.DicTypes as EDSL(HasDictionary)
 
 ------------------- DicEDSL -----------------------------
-mkDic   :: (RenderMessage (HandlerSite m) mess, PersistEntity a, Typeable a, PersistEntityBackend a ~ SqlBackend)
+mkDic   :: (RenderMessage m mess, PersistEntity a, Typeable a, PersistEntityBackend a ~ SqlBackend)
         => mess -> [DicField m a] -> Dictionary m a
 mkDic m flds = Dictionary
     { dDisplayName  = SomeMessage m
@@ -32,14 +32,14 @@ fld ef = DicField
   where
     hn = SomeMessage $ unHaskellName $ fieldHaskell $ persistFieldDef ef
 
-label :: RenderMessage (HandlerSite m) mess => mess -> DicField m a -> DicField m a
+label :: RenderMessage m mess => mess -> DicField m a -> DicField m a
 label mess DicField {..} = DicField
     { dfSettings = dfSettings { fsLabel = SomeMessage mess }
     , dfShort = Just $ maybe (SomeMessage mess) SomeMessage dfShort
     , ..
     }
 
-shortLabel :: RenderMessage (HandlerSite m) mess => mess -> DicField m a -> DicField m a
+shortLabel :: RenderMessage m mess => mess -> DicField m a -> DicField m a
 shortLabel mess DicField {..} = DicField { dfShort = Just $ SomeMessage mess, .. }
 
 hidden :: DicField m a -> DicField m a
@@ -54,3 +54,5 @@ recShowField ef dic = dic { dShowFunc = showEF ef }
 showField :: PersistEntity e => DicField m e -> Entity e -> Text
 showField (DicField {..}) = showEF dfEntityField
 
+someDic :: HasDictionary master a => [a] -> SomeDictionary master
+someDic xs = SomeDictionary ([],xs)
