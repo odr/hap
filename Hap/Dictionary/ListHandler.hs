@@ -14,24 +14,23 @@ getListR :: SomeDictionary m -> HandlerT m IO Html
 getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
     cnt <- runDB $ count ([] :: [Filter a])
     $logDebug $ T.pack $ "cnt = " ++ show cnt
+    mr <- getMessageRender
+    root <- getRoot
     defaultLayout $ do
-        mr <- getMessageRender
         setTitleI $ MsgListDic $ mr dn
-        root <- getRoot
         [whamlet|
             <h1>_{MsgDictionary} #{mr dn}
             ^{pager (listR root sd) cnt}
             <div #lstTab>
             |]
         toWidget [julius|
-                function del(urlVal,fSucc) {
-                    $.ajax({
-                        type: "DELETE"
+            function del(urlVal) {
+                $.ajax( { type: "DELETE"
                         , url: urlVal
-                        , success: fSucc
-                    });
-                }
-            |]
+                        , success: afterDel
+                        });
+            }
+        |]
   where
     dn  = case getDictionary :: Dictionary m a of
         (Dictionary {..}) -> dDisplayName
@@ -66,7 +65,7 @@ postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
                         $forall x <- rec
                                 <td align=left>#{x}
                         <td align=center>
-                            <button onclick=alert('del');del('#{editR root sd (toPersistValue key)}',afterDel)>-
+                            <button onclick=del('#{editR root sd (toPersistValue key)}')>-
             |]
   where
     dic = getDictionary :: Dictionary m a
@@ -103,7 +102,7 @@ pager route cnt = do
             <button #goNextBtn .pager-btn title=_{MsgNextPageBtn}>>
             <button #goLstBtn  .pager-btn title=_{MsgGoToLastBtn}>>>
             <span .pager-text>_{MsgPageSize}
-            <input #pgsz .pager-input value=#{pgsz}>
+            <input #pgsz .pager-input>
             <span .pager-text>_{MsgRecCount}
             <span #reccnt>&nbsp;#{cnt}
         |]
@@ -116,7 +115,6 @@ pager route cnt = do
                 return parseInt($('#pgnum')[0].value);
         	}
     		function afterDel() {
-    			// location.reload(true);
     			var cnt$ = $('#reccnt');
     			cnt$.text(cnt$.text() - 1);
     			var ps = pageSize();
@@ -133,6 +131,7 @@ pager route cnt = do
                 function loadData() {
                     var ps=pageSize();
                     var pcnt = Math.ceil(cntRec / ps);
+                    localStorage["pageSize"] = ps;
                     if (ePc.innerText) ePc.innerText = pcnt;
                     else ePc.innerHTML = pcnt;
                     var cp=parseInt(ePn.value);
@@ -141,7 +140,12 @@ pager route cnt = do
                     bFst.disabled = bPrev.disabled = cp == 1;
                     bLst.disabled = bNext.disabled = cp == pcnt;
                 }
-                onload = onload ? function() { onload(); loadData(); } : loadData;
+                onload = function() { 
+                		var ps = localStorage["pageSize"];
+                		ps = !!ps ? ps : '#{toJSON pgsz}';
+                		$('#pgsz').val(ps); 
+            			loadData(); 
+        			} 
                 bFst.act  = function()  { return 1; };
                 bNext.act = function(v) { return v+1; };
                 bPrev.act = function(v) { return v-1; };

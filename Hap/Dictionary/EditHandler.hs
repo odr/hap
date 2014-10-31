@@ -20,15 +20,30 @@ editForm title sd v widget enctype =
     defaultLayout $ do
         setTitle $ toHtml title
         root <- getRoot
+        let edR = editR root sd v
+            lstR = listR root sd
+            newR = editR root sd $ PersistInt64 (-1)
         [whamlet|
-            <form method=post action=#{editR root sd v} enctype=#{enctype}>
+            <form method=post action=#{edR} enctype=#{enctype}>
                 <table>
                     ^{widget}
                 <span>
                     <button>Submit
-                    <a href=#{editR root sd (PersistInt64 -1)}>Add
-                    <a href=#{listR root sd}>Close
+                    <a href=#{newR}>Add
+                    <a href=#{lstR}>Close
+                    <button onclick=del()>Delete
         |]
+
+        toWidget [julius|
+                function del() {
+                    $.ajax({
+                        type: "DELETE"
+                        , url: #{toJSON edR}
+                        , success: function () {window.location=#{toJSON lstR}}
+                    });
+                }
+            |]
+
 
 
 withEntity  :: HasDictionary m e -- PersistEntityBackend e ~ YesodPersistBackend m
