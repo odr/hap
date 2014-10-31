@@ -24,13 +24,11 @@ getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
             <div #lstTab>
             |]
         toWidget [julius|
-                function del(urlVal) {
+                function del(urlVal,fSucc) {
                     $.ajax({
                         type: "DELETE"
                         , url: urlVal
-                        , success: function(msg){
-                            alert("Data Deleted: " + msg);
-                        }
+                        , success: fSucc
                     });
                 }
             |]
@@ -43,17 +41,13 @@ postListR :: SomeDictionary m -> HandlerT m IO Html
 postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
     -- addHeader "Access-Control-Allow-Origin" "*"
     -- addHeader "Access-Control-Allow-Methods" "POST"
-    rds <- fmap fst runRequestBody
-    let lim = maybe (3::Int) id $ lookup "lim" rds >>= readMay . T.unpack
-        off = maybe (0::Int) id $ lookup "off" rds >>= readMay . T.unpack
+    (lim, off) <- fmap ((getParam 3 "lim" &&& getParam 0 "off") . fst) runRequestBody
     (res :: [Entity a]) <- runDB $ selectList [] [Asc persistIdField, OffsetBy off, LimitTo lim]
     let recs = map  (   entityKey
                     &&& map (showPersistValue . snd)
                         . sortByPattern getDBName fst (dFields dic)
                         . (\(PersistMap m) -> m) . toPersistValue . entityVal
                     ) res
-    -- $logDebug $ T.unlines $ map (T.pack . show) recs
-    --                 -- <th bgcolor=blue>_{MsgId}
     root <- getRoot
     widgetToHtml $ do
         [whamlet|
@@ -72,11 +66,12 @@ postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
                         $forall x <- rec
                                 <td align=left>#{x}
                         <td align=center>
-                            <button onclick=alert('del');del('#{editR root sd (toPersistValue key)}')>-
+                            <button onclick=alert('del');del('#{editR root sd (toPersistValue key)}',afterDel)>-
             |]
   where
     dic = getDictionary :: Dictionary m a
     defKey = toPersistValue (def :: Key a)
+    getParam (v::Int) nm ps = fromMaybe v $ lookup nm ps >>= readMay . T.unpack
 
 pager 	:: (RenderMessage site HapMessage, ToJSON a, MonadThrow m, MonadIO m, MonadBaseControl IO m) 
 		=> a -> Int -> WidgetT site m ()
@@ -109,21 +104,34 @@ pager route cnt = do
             <button #goLstBtn  .pager-btn title=_{MsgGoToLastBtn}>>>
             <span .pager-text>_{MsgPageSize}
             <input #pgsz .pager-input value=#{pgsz}>
-            <span .pager-text>_{MsgRecCount cnt}
+            <span .pager-text>_{MsgRecCount}
+            <span #reccnt>&nbsp;#{cnt}
         |]
     toWidget
         [julius|
+        	function pageSize() {
+                return parseInt($('#pgsz')[0].value);
+        	}
+        	function pageNum() {
+                return parseInt($('#pgnum')[0].value);
+        	}
+    		function afterDel() {
+    			// location.reload(true);
+    			var cnt$ = $('#reccnt');
+    			cnt$.text(cnt$.text() - 1);
+    			var ps = pageSize();
+    			$('#lstTab').load(#{toJSON route}, {lim: ps, off: (pageNum()-1)*ps});
+    		}
             function addPager(pager$, tab$, addr, cntRec) {
                 var bFst = $('#goFstBtn', pager$)[0];
                 var bLst = $('#goLstBtn', pager$)[0];
                 var bNext = $('#goNextBtn', pager$)[0];
                 var bPrev = $('#goPrevBtn', pager$)[0];
                 var ePn = $('#pgnum', pager$)[0];
-                var ePs = $('#pgsz', pager$)[0];
                 var ePc = $('#pgcnt', pager$)[0];
 
                 function loadData() {
-                    var ps=parseInt(ePs.value);
+                    var ps=pageSize();
                     var pcnt = Math.ceil(cntRec / ps);
                     if (ePc.innerText) ePc.innerText = pcnt;
                     else ePc.innerHTML = pcnt;

@@ -8,7 +8,8 @@ module Application
 import Import
 import Settings
 import Yesod.Auth
-import Yesod.Default.Config
+import Yesod.Default.Config as YC(loadConfig, AppConfig(..), DefaultEnv(..), withYamlEnvironment
+    , configSettings, ConfigSettings(..)) 
 import Yesod.Default.Main
 import Yesod.Default.Handlers
 import Network.Wai.Middleware.RequestLogger
@@ -87,7 +88,7 @@ getApplicationDev :: IO (Int, Application)
 getApplicationDev =
     defaultDevelApp loader (fmap fst . makeApplication)
   where
-    loader = Yesod.Default.Config.loadConfig (configSettings Development)
+    loader = YC.loadConfig (configSettings Development)
         { csParseExtra = parseExtra
         }
 

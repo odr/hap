@@ -7,8 +7,8 @@ ListDic dic@Text: Список #{dic}
 Id: Ключ
 
 #pager
-RecCount cnt@Int: Кол-во записей: #{show cnt}
-PageCount cnt@Int: Кол-во страниц: #{show cnt}
+RecCount: Кол-во записей: 
+PageCount: Кол-во страниц: 
 PageSize: Размер страницы:
 Page: Страница
 GoToFirstBtn: На первую запись

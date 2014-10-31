@@ -7,8 +7,8 @@ ListDic dic@Text: List of #{dic}
 Id: Key
 
 #pager
-RecCount cnt@Int: Count of record: #{show cnt}
-PageCount cnt@Int: Count of pages: #{show cnt}
+RecCount: Count of record:
+PageCount: Count of pages:
 PageSize: Size of page:
 Page: Page
 GoToFirstBtn: Go to the first record
