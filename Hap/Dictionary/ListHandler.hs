@@ -9,6 +9,7 @@ import Hap.Dictionary.Hap
 import Hap.Dictionary.Utils
 import Safe(readMay)
 import Control.Monad.Catch(MonadThrow)
+import Control.Monad(replicateM)
 
 getListR :: SomeDictionary m -> HandlerT m IO Html
 getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
@@ -16,12 +17,13 @@ getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
     $logDebug $ T.pack $ "cnt = " ++ show cnt
     mr <- getMessageRender
     root <- getRoot
+    lstTab <- newIdent
     defaultLayout $ do
         setTitleI $ MsgListDic $ mr dn
         [whamlet|
             <h1>_{MsgDictionary} #{mr dn}
-            ^{pager (listR root sd) cnt}
-            <div #lstTab>
+            ^{pager lstTab (listR root sd) cnt}
+            <div ##{lstTab}>
             |]
         toWidget [julius|
             function del(urlVal) {
@@ -72,9 +74,10 @@ postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
     defKey = toPersistValue (def :: Key a)
     getParam (v::Int) nm ps = fromMaybe v $ lookup nm ps >>= readMay . T.unpack
 
-pager 	:: (RenderMessage site HapMessage, ToJSON a, MonadThrow m, MonadIO m, MonadBaseControl IO m) 
-		=> a -> Int -> WidgetT site m ()
-pager route cnt = do
+pager  :: (MonadThrow m, RenderMessage site HapMessage, MonadBaseControl IO m, MonadIO m, ToJSON a1, ToJSON a)
+       => a -> a1 -> Int -> WidgetT site m ()
+
+pager tabId route cnt = do
     toWidget [cassius|
         .pager
             border: ridge
@@ -91,42 +94,46 @@ pager route cnt = do
         th
             color: yellow
         |]
+    [pgr, goFstBtn, goPrevBtn, goNextBtn, goLstBtn, pgnum, pgcnt, pgsz, reccnt] <- replicateM 9 newIdent
     [whamlet|
-        <div .pager>
-            <button #goFstBtn  .pager-btn title=_{MsgGoToFirstBtn}><<
-            <button #goPrevBtn .pager-btn title=_{MsgPrevPageBtn}><
+        <div ##{pgr} .pager>
+            <button ##{goFstBtn}  .pager-btn title=_{MsgGoToFirstBtn}><<
+            <button ##{goPrevBtn} .pager-btn title=_{MsgPrevPageBtn}><
             <span .pager-text>_{MsgPage}
-            <input #pgnum .pager-input value=1>
+            <input ##{pgnum} .pager-input value=1>
             <span .pager-text>_{MsgOf}
-            <span #pgcnt>..
-            <button #goNextBtn .pager-btn title=_{MsgNextPageBtn}>>
-            <button #goLstBtn  .pager-btn title=_{MsgGoToLastBtn}>>>
+            <span ##{pgcnt}>..
+            <button ##{goNextBtn} .pager-btn title=_{MsgNextPageBtn}>>
+            <button ##{goLstBtn}  .pager-btn title=_{MsgGoToLastBtn}>>>
             <span .pager-text>_{MsgPageSize}
-            <input #pgsz .pager-input>
+            <input ##{pgsz} .pager-input>
             <span .pager-text>_{MsgRecCount}
-            <span #reccnt>&nbsp;#{cnt}
+            <span ##{reccnt}>&nbsp;#{cnt}
         |]
     toWidget
         [julius|
         	function pageSize() {
-                return parseInt($('#pgsz')[0].value);
+                return parseInt($('#'+#{toJSON pgsz})[0].value);
         	}
         	function pageNum() {
-                return parseInt($('#pgnum')[0].value);
+                return parseInt($('#'+#{toJSON pgnum})[0].value);
         	}
     		function afterDel() {
-    			var cnt$ = $('#reccnt');
+    			var cnt$ = $('#'+#{toJSON reccnt});
     			cnt$.text(cnt$.text() - 1);
     			var ps = pageSize();
     			$('#lstTab').load(#{toJSON route}, {lim: ps, off: (pageNum()-1)*ps});
     		}
-            function addPager(pager$, tab$, addr, cntRec) {
-                var bFst = $('#goFstBtn', pager$)[0];
-                var bLst = $('#goLstBtn', pager$)[0];
-                var bNext = $('#goNextBtn', pager$)[0];
-                var bPrev = $('#goPrevBtn', pager$)[0];
-                var ePn = $('#pgnum', pager$)[0];
-                var ePc = $('#pgcnt', pager$)[0];
+            function addPager() {
+                var bFst  = $('#'+#{toJSON goFstBtn} )[0]
+                    , bLst  = $('#'+#{toJSON goLstBtn} )[0]
+                    , bPrev = $('#'+#{toJSON goPrevBtn})[0]
+                    , bNext = $('#'+#{toJSON goNextBtn})[0]
+                    , ePn   = $('#'+#{toJSON pgnum}    )[0]
+                    , ePc   = $('#'+#{toJSON pgcnt}    )[0]
+                    , tab$  = $('#'+#{toJSON tabId}    )
+                    , addr  = #{toJSON route}
+                    , cntRec =#{Number $ fromIntegral cnt};
 
                 function loadData() {
                     var ps=pageSize();
@@ -142,10 +149,10 @@ pager route cnt = do
                 }
                 onload = function() { 
                 		var ps = localStorage["pageSize"];
-                		ps = !!ps ? ps : '#{toJSON pgsz}';
-                		$('#pgsz').val(ps); 
+                		ps = !!ps ? ps : '20';
+                		$('#'+#{toJSON pgsz}).val(ps); 
             			loadData(); 
-        			} 
+        			};
                 bFst.act  = function()  { return 1; };
                 bNext.act = function(v) { return v+1; };
                 bPrev.act = function(v) { return v-1; };
@@ -154,13 +161,11 @@ pager route cnt = do
                     ePn.value = this.act(parseInt(ePn.value));
                     loadData();
                 });
-                $("#pgnum").change(loadData);
-                $("#pgsz").change(loadData);
+                $('#'+#{toJSON pgnum}).change(loadData);
+                $('#'+#{toJSON pgsz}).change(loadData);
             }
-            addPager($(".pager"), $('#lstTab'), #{toJSON route}, #{Number $ fromIntegral cnt});
+            addPager();
             |]
-  where
-    pgsz = 15::Int
 
 
 

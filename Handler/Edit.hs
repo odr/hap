@@ -1,109 +1,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Handler.Edit(getEditR, postEditR, deleteEditR) where
     
-{-
-import Import
-import qualified Data.Text as T
--}
 import Hap.Dictionary.Types(SomeDictionary)
 import qualified Hap.Dictionary.EditHandler as EH
 import Import_
--- import Foundation_(App)
 import Foundation
 
 getEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Html
 getEditR = EH.getEditR
-{-
-getEditR sd@(SomeDictionary (_ :: Handler [a])) v = withEntity (getDictionary :: Dictionary Handler a) v produce
-  where
-    produce dicName ent = do
-        (widget, enctype) <- generateFormPost $ renderTable $ dictionaryAForm $ Just ent
-        editForm (dicName <> ": " <> toPathPiece v) sd v widget enctype
 
-editForm :: Text -> SomeDictionary Handler -> PersistValue -> Widget -> Enctype -> Handler Html
-editForm title sd v widget enctype =
-    defaultLayout $ do
-        setTitle $ toHtml title
-        [whamlet|
-            <form method=post action=@{EditR sd v} enctype=#{enctype}>
-                <table>
-                    ^{widget}
-                <span>
-                    <button>Submit
-                    <a href=@{EditR sd (PersistInt64 -1)}>Add
-                    <a href=@{ListR sd}>Close
-        |]
-
-
-withEntity :: (HasDictionary Handler e) 
-            => Dictionary Handler e -> PersistValue -> (Text -> Entity e -> Handler Html) 
-            -> Handler Html
-withEntity (dic :: Dictionary Handler a) v produce = getMessageRender >>= withMR
-  where
-    ek = fromPersistValue v :: Either Text (Key a)
-    withMR mr
-        = either    ( showErr dicName . MsgInvalidKey dicName (toPathPiece v) )
-                    ( \k -> do
-                        me <- if k == def
-                            then return $ Just def
-                            else runDB $ get k
-                        maybe   ( showErr dicName $ MsgNotFound dicName $ toPathPiece v )
-                                ( produce dicName . Entity k )
-                                me
-                    )
-                    ek
-      where
-        dicName = mr $ dDisplayName dic
-
-showErr :: Text -> AppMessage -> Handler Html
-showErr dicName mess = do
-    setMessageWidget [whamlet|
-        <h3>_{mess}
-        <hr>|]
-    defaultLayout $ do
-        setTitle $ toHtml $ dicName <> " - error"
--}
 postEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Html
 postEditR = EH.postEditR
-{-
-postEditR sd@(SomeDictionary (_:: Handler [a])) v
-    = withEntity (getDictionary :: Dictionary Handler a) v produce
-  where
-    produce _ ent = do
-        ((result, _), _) <- runFormPost $ renderTable $ dictionaryAForm $ Just ent
-        case result of
-            FormSuccess (Entity k e) -> do
 
-                k' <- if k == def
-                    then runDB $ insert e
-                    else runDB (replace k e) >> return k
-
-                setMessageWidget [whamlet|
-                        <h2 .info>_{MsgSaved}
-                        <hr>
-                    |]
-                redirect $ EditR sd $ toPersistValue k'
-            FormFailure xs -> do
-                setMessageWidget [whamlet|
-                        <h2 .error>_{MsgError $ T.unlines xs}
-                        <hr>
-                    |]
---                 editForm (dicName <> ": " <> toPathPiece v) sd v widget enctype
-                redirect $ EditR sd v
-            FormMissing -> do
-                setMessageWidget [whamlet|
-                        <h2 .error>_{MsgError "Missing form"}
-                        <hr>
-                    |]
-                redirect $ EditR sd v
--}
 deleteEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Html
 deleteEditR = EH.deleteEditR
-{-
-deleteEditR sd@(SomeDictionary (_ :: Handler [a])) v = do
-    mr <- getMessageRender
-    let dicName = mr $ dDisplayName (getDictionary :: Dictionary Handler a)
-    either  ( showErr dicName . MsgInvalidKey dicName (toPathPiece v) )
-            ( \k -> runDB (delete k) >> redirect (ListR sd) )
-            (fromPersistValue v :: Either Text (Key a))
--}

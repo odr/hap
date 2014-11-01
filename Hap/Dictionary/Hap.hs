@@ -6,7 +6,7 @@ import Import_
 
 data Hap = Hap
 
-mkMessage "Hap" "messages_dic" "en"
+mkMessage "Hap" "Hap/Dictionary/messages" "en"
 
 instance RenderMessage Hap FormMessage where
     renderMessage _ _ = defaultFormMessage
