@@ -12,3 +12,7 @@ yesod-devel/
 cabal.sandbox.config
 .DS_Store
 *.swp
+SourceGraph/
+deploy/
+*sublime*
+client_session_key.aes
