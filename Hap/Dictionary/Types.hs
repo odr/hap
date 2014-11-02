@@ -4,29 +4,22 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Hap.Dictionary.Types where
 
-import Import_
--- import Control.Monad.Trans.Resource(MonadResourceBase)
--- import Data.Monoid(Monoid(..), (<>), 
+import Hap.Dictionary.Import
 import Data.Monoid(Last(..), Endo(..))
--- import           Data.Text (Text)
 import qualified Data.Text as T
 import Data.Typeable
--- import Data.Function(on)
 import           Data.Map (Map)
 import qualified Data.Map as M
 import Data.Char(toLower)
 import Safe(readMay)
--- import Data.Default.Generics(Default(..))
--- import Data.Maybe(fromMaybe)
--- import Control.Arrow(first, (***), (&&&))
--- import Control.Monad(foldM, (>=>))
 
 import Hap.Dictionary.Hap
 import Hap.Dictionary.Utils(getRoot)
 
+import Debug.Trace(traceShowId)
 
 data Dictionary master e = Dictionary
-    { dDisplayName  :: SomeMessage master -- forall mess. (RenderMessage (HandlerSite m) mess) => mess 
+    { dDisplayName  :: SomeMessage master
     , dFields       :: [DicField master e]
     , dShowFunc     :: Entity e -> Text
     } -- deriving Typeable
@@ -53,12 +46,6 @@ instance HasMapDict master => PathPiece (SomeDictionary master) where
     toPathPiece = T.pack . show
     fromPathPiece = readMay . T.unpack
 
-{-
-instance (PersistEntity a) => PathPiece (Key a) where
-	toPathPiece = toPathPiece . toPersistValue
-	fromPathPiece = fromPathPiece >=> either (const Nothing) Just . fromPersistValue
--}
-
 data FieldKind = Hidden | ReadOnly | Editable deriving (Eq, Show, Read)
 
 instance Monoid FieldKind where
@@ -79,21 +66,10 @@ data DicField m e   = forall t. (FieldForm m e t)
 
 getDBName :: (PersistEntity e) => DicField m e -> Text
 getDBName (DicField {..}) = unDBName $ fieldDB $ persistFieldDef dfEntityField
--- type HandlerMaster m = HandlerT Hap (HandlerT m IO)
 
 class (RenderMessage m FormMessage) => FieldForm m e a where
     fieldAForm :: [e] -> FieldSettings m -> Maybe a -> AForm (HandlerT m IO) a
-    fieldForm  :: [e] -> FieldSettings m -> Maybe a -> MForm (HandlerT m IO) (FormResult a, FieldView m)
 
-{-
-instance (RenderMessage m FormMessage) => FieldForm m e Text where
-    fieldAForm _ = areq textField
-    fieldForm  _ = mreq textField
-
-instance (RenderMessage m FormMessage) => FieldForm m e (Maybe Text) where
-    fieldAForm _ = aopt textField
-    fieldForm  _ = mopt textField
--}
 instance (PersistEntity a) => Default (Key a) where
     def = either (error . T.unpack . ("Can't create def for Key. " <>))
                 id
@@ -105,60 +81,75 @@ instance (PersistEntity a) => Default (Key a) where
 instance (PersistEntity a, Default a) => Default (Entity a) where
     def = Entity def def
 
-instance (PersistEntity e, HasDictionary m a, Typeable a, Yesod m, RenderMessage m FormMessage) 
+instance (PersistEntity e, Typeable e, HasDictionary m a, Typeable a, YesodHap m) 
 		=> FieldForm m e (Key a) where
     fieldAForm _ fs ma
-        | show (def :: Key e) == show (def :: Key a)
-            = fmap (fromMaybe (error "Invalid Key") . fromPathPiece . T.pack . show)
-            $ areq intField fs (fmap (read . T.unpack . toPathPiece) ma :: Maybe Integer)
+        | typeOf ([] :: [e]) == typeOf ([] :: [a])
+            = fmap getLast'
+            $ lift ($logDebug ("fieldAForm: " <> (T.pack $ show ma)) >> return (Last def))
+            <> fmap (Last . fromMaybe (error "Invalid Key") . fromPathPiece . T.pack . show . traceShowId)
+                    (areq intField fs (fmap (read . T.unpack . toPathPiece) ma :: Maybe Integer))
+
         | otherwise = areq (dicKeyField (mempty :: ([m], [a]))) fs ma
-    fieldForm _ fs ma
-        | show (def :: Key e) == show (def :: Key a)
-            = fmap (first $ fmap $ fromMaybe (error "Invalid Key") . fromPathPiece . T.pack . show)
-            $ mreq intField fs (fmap (read . T.unpack . toPathPiece) ma :: Maybe Integer)
-        | otherwise = mreq (dicKeyField (mempty :: ([m], [a]))) fs ma
 
-instance (PersistEntity e, Typeable a, Yesod m, HasDictionary m a, RenderMessage m FormMessage) 
+instance (PersistEntity e, HasDictionary m a, YesodHap m) 
 		=> FieldForm m e (Maybe (Key a)) where
-    fieldAForm _ fs ma
-        | show (def :: Key e) == show (def :: Key a)
-            = fmap (>>= fromPathPiece . T.pack . show)
-            $ aopt intField fs (fmap (fmap (read . T.unpack . toPathPiece)) ma :: Maybe (Maybe Integer))
-        | otherwise = aopt (dicKeyField (mempty :: ([m],[a]))) fs ma
-    fieldForm _ fs ma
-        | show (def :: Key e) == show (def :: Key a)
-            = fmap (first $ fmap (>>= fromPathPiece . T.pack . show))
-            $ mopt intField fs (fmap (fmap (read . T.unpack . toPathPiece)) ma :: Maybe (Maybe Integer))
-        | otherwise = mopt (dicKeyField (mempty :: ([m],[a]))) fs ma
+    fieldAForm _ fs ma = aopt (dicKeyField (mempty :: ([m],[a]))) fs ma
 
-dicKeyField :: (Typeable a, Yesod m, HasDictionary m a) => ([m],[a]) -> Field (HandlerT m IO) (Key a)
+dicKeyField :: (Typeable a, HasDictionary m a
+                , Yesod m, YesodPersist m, PersistStore (YesodPersistBackend m), RenderMessage m HapMessage) 
+            => ([m],[a]) -> Field (HandlerT m IO) (Key a)
 dicKeyField (x :: ([m],[a])) = Field
-    { fieldParse = \rawVals _ ->
+    { fieldParse = \rawVals _ -> do
+        $logDebug $ "fieldParse: " <> T.pack (show rawVals)
         let err = $logError $ "Invalid rawVals in dicKeyField for Key of '"
                             <> dicText
                             <> "'. rawVals = [" <> T.intercalate ", " rawVals <> "]"
-        in
         case rawVals of
             [a] -> return $ Right $ (fromPathPiece a :: Maybe (Key a))
             [] -> return $ Right Nothing
             _ -> err >> return (Left "More than one rawVal in dicKeyField")
-    , fieldView = \idAttr nameAttr otherAttrs eResult _ -> do
-        either        
-            (setMessage . toHtml)
-            (\k -> do
-                path <- fmap (\r -> editR r (SomeDictionary x) (toPersistValue k)) getRoot
-                [whamlet|
-                        <span .ui-single-line>
-                            <input id=#{idAttr} name=#{nameAttr} *{otherAttrs}>
-                            <a href="" .ui-chooser-view-button>v
-                            <a href=#{path} target=_blank .ui-chooser-detail-button>d
-                    |]
-            )
-            eResult
+    , fieldView = fv
     , fieldEnctype = UrlEncoded
     }
   where
     dicText = T.pack $ show $ SomeDictionary x
+    (dn, showFunc)  = case getDictionary :: Dictionary m a of
+        (Dictionary {..}) -> (dDisplayName, dShowFunc)
+    fv idAttr nameAttr otherAttrs eResult isReq = do
+        $logDebug $ "fieldView: " <> T.pack (show eResult)
+        case eResult of
+            Left r  | T.null r  -> fvWidget def ""
+                    | otherwise -> setMessage $ toHtml r
+            Right k -> do
+                $logDebug $ "lookup for key " <> toPathPiece k
+                val <- do
+                    mval <- liftHandlerT $ fmap (fmap $ showFunc . Entity k) $ runDB $ get k
+                    $logDebug $ "get entity: " <> T.pack (show mval)
+                    case mval of 
+                        Nothing -> do
+                            mrHap <- getMessageRender
+                            mr <- getMessageRender
+                            setMessage $ toHtml $ mrHap $ MsgNotFound (mr dn) (toPathPiece k)
+                            return mempty
+                        Just v -> return v
+                fvWidget k val
+      where
+        fvWidget k val = do
+            path <- fmap (\r -> editR r (SomeDictionary x) (toPersistValue k)) getRoot
+            toWidget [cassius|
+                    .inline-button
+                        margin-bottom: 10px
+                        padding-bottom: 4px
+                |]
+            [whamlet|
+                    $if isReq
+                        <span .req-aster>*
+                    <input id=#{idAttr} name=#{nameAttr} *{otherAttrs} type="text" value=#{val} readonly>
+                    <button type=button .inline-button .ui-chooser-view-button>v
+                    <button type=button onclick=window.open('#{path}') .inline-button .ui-chooser-detail-button>d
+                |]
+
 
 editR :: Text -> SomeDictionary m -> PersistValue -> Text
 editR root sd k = root <> "/edit/" <> T.pack (show sd) <> "/" <> toPathPiece k
@@ -183,18 +174,15 @@ dicFieldForm' :: (Default e, PersistEntity e)
     => DicField m e -> Last (Entity e)
     -> MForm (HandlerT m IO) ((FormResult (Last (Entity e)), Last (Entity e)), Endo [FieldView m])
 dicFieldForm' df le
-    = fmap ((fmap (Last . Just) &&& caseRes) *** Endo)
-    $ dicFieldForm df $ getLast' le
+    = fmap ((fmap (Last . Just) &&& caseRes) *** Endo) $ dicFieldForm df $ getLast' le
   where
     caseRes = \case
         FormSuccess le' -> Last $ Just le'
         _               -> le
 
-
 class 	(Default e, PersistEntity e, PersistEntityBackend e ~ YesodPersistBackend m
-		, YesodPersist m, PersistQuery (YesodPersistBackend m), Yesod m
-		, Typeable e, RenderMessage m HapMessage, PersistField e
-		, PathPiece (Key e)
+		, Typeable e, PersistField e
+		, PathPiece (Key e), Show e
 		) 
 		=> HasDictionary m e where
 	getDictionary :: Dictionary m e
@@ -204,7 +192,7 @@ dictionaryForm :: HasDictionary m e
     => Maybe (Entity e) 
     -> MForm (HandlerT m IO) ((FormResult (Entity e), Entity e), [FieldView m] -> [FieldView m])
 dictionaryForm me
-    = fmap ((fmap getLast' *** getLast') *** appEndo)
+    = fmap ((fmap getLast' *** getLast') *** appEndo) 
     $ foldM app ((FormSuccess e0, e0), mempty) $ dFields getDictionary
   where
     e0 = Last me
@@ -213,12 +201,6 @@ dictionaryForm me
 dictionaryAForm :: HasDictionary m e => Maybe (Entity e) -> AForm (HandlerT m IO) (Entity e)
 dictionaryAForm = formToAForm . fmap (fst *** ($ [])) . dictionaryForm
 
-{-
-data HapRoute 
-	= forall m. (HasMapDict m) 
-	=> HapListR (SomeDictionary m)
-	|  HapEditR (SomeDictionary m) (Key e)
-
-render :: HapRoute -> [(Text, Text)] -> Text
-render 
--}
+class (Yesod m, RenderMessage m FormMessage, RenderMessage m HapMessage
+        , YesodPersist m, PersistStore (YesodPersistBackend m), PersistQuery (YesodPersistBackend m)) 
+    => YesodHap m where

@@ -1,17 +1,18 @@
 {-# LANGUAGE ScopedTypeVariables, MultiParamTypeClasses #-}
 module Hap.Dictionary.EditHandler(getEditR, postEditR, deleteEditR) where
     
-import Import_
+import Hap.Dictionary.Import
 import qualified Data.Text as T
 
 import Hap.Dictionary.Types
 import Hap.Dictionary.Hap
 import Hap.Dictionary.Utils
 
-getEditR :: (Yesod m, RenderMessage m FormMessage) => SomeDictionary m -> PersistValue -> HandlerT m IO Html
+getEditR :: (YesodHap m) => SomeDictionary m -> PersistValue -> HandlerT m IO Html
 getEditR sd@(SomeDictionary (_ :: ([m],[a]))) v = withEntity (getDictionary :: Dictionary m a) v produce
   where
     produce dicName ent = do
+        $logDebug $ "entity: " <> T.pack (show ent)
         (widget, enctype) <- generateFormPost $ renderTable $ dictionaryAForm $ Just ent
         editForm (dicName <> ": " <> toPathPiece v) sd v widget enctype
 
@@ -29,9 +30,9 @@ editForm title sd v widget enctype =
                     ^{widget}
                 <span>
                     <button>Submit
-                    <a href=#{newR}>Add
-                    <a href=#{lstR}>Close
-                    <button onclick=del()>Delete
+                    <button type=button onclick=submit();window.open('#{newR}')>Add
+                    <button type=button onclick=window.open('#{lstR}')>Close
+                    <button type=button onclick=del()>Delete
         |]
 
         toWidget [julius|
@@ -46,9 +47,9 @@ editForm title sd v widget enctype =
 
 
 
-withEntity  :: HasDictionary m e -- PersistEntityBackend e ~ YesodPersistBackend m
-            => Dictionary m e -> PersistValue -> (Text -> Entity e -> HandlerT m IO Html) 
-            -> HandlerT m IO Html
+withEntity  :: (HasDictionary m e, YesodHap m) 
+    => Dictionary m e -> PersistValue -> (Text -> Entity e -> HandlerT m IO Html) 
+    -> HandlerT m IO Html
 withEntity (dic :: Dictionary m a) v produce = getMessageRender >>= withMR
   where
     ek = fromPersistValue v :: Either Text (Key a)
@@ -74,7 +75,7 @@ showErr dicName mess = do
     defaultLayout $ do
         setTitle $ toHtml $ dicName <> " - error"
 
-postEditR :: (RenderMessage m FormMessage) => SomeDictionary m -> PersistValue -> HandlerT m IO Html
+postEditR :: YesodHap m => SomeDictionary m -> PersistValue -> HandlerT m IO Html
 postEditR sd@(SomeDictionary (_:: ([m],[a]))) v
     = withEntity (getDictionary :: Dictionary m a) v produce
   where
@@ -107,7 +108,7 @@ postEditR sd@(SomeDictionary (_:: ([m],[a]))) v
                     |]
                 redirect $ editR root sd v
 
-deleteEditR :: SomeDictionary m -> PersistValue -> HandlerT m IO Html
+deleteEditR :: YesodHap m => SomeDictionary m -> PersistValue -> HandlerT m IO Html
 deleteEditR sd@(SomeDictionary (_ :: ([m],[a]))) v = do
     mr <- getMessageRender
     let dicName = mr $ dDisplayName (getDictionary :: Dictionary m a)

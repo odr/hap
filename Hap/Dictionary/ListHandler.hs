@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables, RecordWildCards, MultiParamTypeClasses #-}
 module Hap.Dictionary.ListHandler where
 
-import Import_
+import Hap.Dictionary.Import
 import qualified Data.Text as T
 -- import Yesod(RenderRoute(..))
 import Hap.Dictionary.Types
@@ -11,7 +11,7 @@ import Safe(readMay)
 import Control.Monad.Catch(MonadThrow)
 import Control.Monad(replicateM)
 
-getListR :: SomeDictionary m -> HandlerT m IO Html
+getListR :: (YesodHap m) => SomeDictionary m -> HandlerT m IO Html
 getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
     cnt <- runDB $ count ([] :: [Filter a])
     $logDebug $ T.pack $ "cnt = " ++ show cnt
@@ -38,7 +38,7 @@ getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
         (Dictionary {..}) -> dDisplayName
 
 
-postListR :: SomeDictionary m -> HandlerT m IO Html
+postListR :: (YesodHap m) => SomeDictionary m -> HandlerT m IO Html
 postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
     -- addHeader "Access-Control-Allow-Origin" "*"
     -- addHeader "Access-Control-Allow-Methods" "POST"
@@ -166,6 +166,3 @@ pager tabId route cnt = do
             }
             addPager();
             |]
-
-
-

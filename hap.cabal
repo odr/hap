@@ -13,15 +13,7 @@ Flag library-only
 
 library
     exposed-modules: Application
-                    Foundation
-                    Import
-                    Model
-                    Settings
-                    Settings.StaticFiles
-                    Settings.Development
-                    Handler.Home
-                    Import_
-                    -- Foundation_
+                    Hap.Dictionary.Import
                     Hap.Dictionary.Hap
                     Hap.Dictionary.EditHandler
                     Hap.Dictionary.ListHandler
@@ -29,6 +21,15 @@ library
                     Hap.Dictionary.FieldFormI
                     Hap.Dictionary.EDSL
                     Hap.Dictionary.Utils
+                    Settings
+                    Settings.StaticFiles
+                    Settings.Development
+                    -- Foundation_
+                    Model
+                    Foundation
+                    -- Dics
+                    Import
+                    Handler.Home
                     Handler.List
                     Handler.Edit
 

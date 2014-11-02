@@ -2,15 +2,16 @@
 module Hap.Dictionary.EDSL
 	( module Hap.Dictionary.EDSL
 	, HasDictionary(..)
-	, SomeDictionary(..)
+    , HasMapDict(..)
+	, SomeDictionary
+    , YesodHap
 	) where
 
-import Import_
--- import Foundation_(AppMessage)
+import Hap.Dictionary.Import as Hap.Dictionary.EDSL
 import Data.Typeable(Typeable)
 import Hap.Dictionary.Utils(showEF)
 import Hap.Dictionary.Types
--- import Hap.Dictionary.DicTypes as EDSL(HasDictionary)
+import Hap.Dictionary.FieldFormI as Hap.Dictionary.EDSL()
 
 ------------------- DicEDSL -----------------------------
 mkDic   :: (RenderMessage m mess, PersistEntity a, Typeable a, PersistEntityBackend a ~ SqlBackend)

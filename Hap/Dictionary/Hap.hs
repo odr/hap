@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell, OverloadedStrings, MultiParamTypeClasses #-}
 module Hap.Dictionary.Hap where
 
-import Import_
+import Hap.Dictionary.Import
 
 data Hap = Hap
 

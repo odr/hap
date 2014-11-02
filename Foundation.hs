@@ -2,15 +2,11 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Foundation (module Foundation) where
 
-import Import_
+import Hap.Dictionary.Import
 
--- import Control.Arrow((&&&))
-import Data.Char(toLower)
--- import Data.Default.Generics(Default)
-import qualified Data.Map as M
+-- import Foundation_
 
 import qualified Data.Text as T
--- import Database.Persist.Sql (SqlBackend)
 import Text.Hamlet (hamletFile)
 import Text.Jasmine (minifym)
 import Yesod
@@ -24,17 +20,20 @@ import Yesod.Static
 import qualified Database.Persist
 import Yesod.Core.Types (Logger)
 
-import Hap.Dictionary.Hap(Hap, HapMessage)
-import Hap.Dictionary.Types(HasMapDict(..))
-import Hap.Dictionary.EDSL
-import Hap.Dictionary.FieldFormI()
+import Data.Char(toLower)
+import qualified Data.Map as M
 
--- import Foundation_  as Foundation
+import Hap.Dictionary.EDSL
+
+import Hap.Dictionary.Hap(Hap, HapMessage)
+--import Hap.Dictionary.Types(SomeDictionary(..), HasMapDict)
+
 import Model
 import           Settings (widgetFile, Extra (..))
 import qualified Settings
 import Settings.Development (development)
 import Settings.StaticFiles
+
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -65,6 +64,7 @@ instance RenderMessage App HapMessage where
     renderMessage = renderMessage . getHap
 
 type SomeDictionary' = SomeDictionary App
+
 -- This is where we define all of the routes in our application. For a full
 -- explanation of the syntax, please see:
 -- http://www.yesodweb.com/book/routing-and-handlers
@@ -189,7 +189,10 @@ getExtra = fmap (appExtra . settings) getYesod
 -- wiki:
 --
 -- https://github.com/yesodweb/yesod/wiki/Sending-email
+instance YesodHap App
 
+#include "Dics.hs"
+{-
 instance HasMapDict App where
     getMapDict =  M.fromList $ map (map toLower . show &&& id)
         [ someDic ([] :: [User])
@@ -215,3 +218,4 @@ instance HasDictionary App Email where
             , fld EmailVerkey   # label MsgVerkey
                                 # readonly
             ]
+-}

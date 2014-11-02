@@ -11,6 +11,7 @@ Email
     user UserId Maybe
     verkey Text Maybe
     UniqueEmail email
+    deriving Show
     deriving Typeable
     deriving Generic
 

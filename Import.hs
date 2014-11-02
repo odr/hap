@@ -2,14 +2,15 @@ module Import
     ( module Import
     ) where
 
-import Import_              as Import
-import Foundation           as Import
-import Model                as Import
-import Settings             as Import
-import Settings.Development as Import
-import Settings.StaticFiles as Import
+import Hap.Dictionary.Import    as Import
+import Hap.Dictionary.Types     as Import
+import Settings                 as Import
+import Settings.Development     as Import
+import Settings.StaticFiles     as Import
+import Model                    as Import
+import Foundation               as Import
+-- import Dics                     as Import
 
-import Hap.Dictionary.Types   as Import
 
 pureLayout :: Widget -> Handler Html
 pureLayout widget = do

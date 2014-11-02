@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables, FlexibleContexts, OverloadedStrings #-}
 module Hap.Dictionary.Utils where
 
-import Import_
+import Hap.Dictionary.Import
 import qualified Data.Text as T
 import qualified Data.Map as M
 import System.Locale(defaultTimeLocale)
@@ -20,7 +20,6 @@ showPersistValue (PersistBool b)              = if b then "+" else "-"
 showPersistValue (PersistDay v)               = T.pack $ formatTime defaultTimeLocale "%x" v
 showPersistValue (PersistTimeOfDay v)         = T.pack $ formatTime defaultTimeLocale "%X" v
 showPersistValue (PersistUTCTime v)           = T.pack $ formatTime defaultTimeLocale "%x %X" v
--- showPersistValue (PersistZonedTime (ZT v))    = T.pack $ formatTime defaultTimeLocale "%c" v
 showPersistValue PersistNull                  = mempty
 showPersistValue (PersistList xs)             = T.unlines $ map showPersistValue xs
 showPersistValue (PersistMap xs)              = T.unlines $ map (\(a,b) -> a <> ": " <> showPersistValue b) xs
