@@ -17,21 +17,11 @@ getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
     $logDebug $ T.pack $ "cnt = " ++ show cnt
     mr <- getMessageRender
     root <- getRoot
-    lstTab <- newIdent
     defaultLayout $ do
         setTitleI $ MsgListDic $ mr dn
         [whamlet|
             <h1>_{MsgDictionary} #{mr dn}
-            ^{pager lstTab (listR root sd) cnt}
-            <div ##{lstTab}>
-            |]
-        toWidget [julius|
-            function del(urlVal) {
-                $.ajax( { type: "DELETE"
-                        , url: urlVal
-                        , success: afterDel
-                        });
-            }
+            ^{pager (listR root sd) cnt}
         |]
   where
     dn  = case getDictionary :: Dictionary m a of
@@ -74,10 +64,9 @@ postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
     defKey = toPersistValue (def :: Key a)
     getParam (v::Int) nm ps = fromMaybe v $ lookup nm ps >>= readMay . T.unpack
 
-pager  :: (MonadThrow m, RenderMessage site HapMessage, MonadBaseControl IO m, MonadIO m, ToJSON a1, ToJSON a)
-       => a -> a1 -> Int -> WidgetT site m ()
-
-pager tabId route cnt = do
+pager  :: (MonadThrow m, RenderMessage site HapMessage, MonadBaseControl IO m, MonadIO m)
+       => Text -> Int -> WidgetT site m ()
+pager route cnt = do
     toWidget [cassius|
         .pager
             border: ridge
@@ -94,7 +83,7 @@ pager tabId route cnt = do
         th
             color: yellow
         |]
-    [pgr, goFstBtn, goPrevBtn, goNextBtn, goLstBtn, pgnum, pgcnt, pgsz, reccnt] <- replicateM 9 newIdent
+    [tabId, pgr, goFstBtn, goPrevBtn, goNextBtn, goLstBtn, pgnum, pgcnt, pgsz, reccnt] <- replicateM 10 newIdent
     [whamlet|
         <div ##{pgr} .pager>
             <button ##{goFstBtn}  .pager-btn title=_{MsgGoToFirstBtn}><<
@@ -109,7 +98,8 @@ pager tabId route cnt = do
             <input ##{pgsz} .pager-input>
             <span .pager-text>_{MsgRecCount}
             <span ##{reccnt}>&nbsp;#{cnt}
-        |]
+        <div ##{tabId}>
+    |]
     toWidget
         [julius|
         	function pageSize() {
@@ -118,20 +108,25 @@ pager tabId route cnt = do
         	function pageNum() {
                 return parseInt($('#'+#{toJSON pgnum})[0].value);
         	}
-    		function afterDel() {
-    			var cnt$ = $('#'+#{toJSON reccnt});
-    			cnt$.text(cnt$.text() - 1);
-    			var ps = pageSize();
-    			$('#lstTab').load(#{toJSON route}, {lim: ps, off: (pageNum()-1)*ps});
-    		}
+            function del(urlVal) {
+                $.ajax( { type: "DELETE"
+                        , url: urlVal
+                        , success: function () {
+                                var cnt$ = $('#'+#{toJSON reccnt});
+                                cnt$.text(cnt$.text() - 1);
+                                var ps = pageSize();
+                                $(#{toJSON $ "#" <> tabId}).load(#{toJSON route}, {lim: ps, off: (pageNum()-1)*ps});
+                            }
+                        });
+            }    		
             function addPager() {
-                var bFst  = $('#'+#{toJSON goFstBtn} )[0]
-                    , bLst  = $('#'+#{toJSON goLstBtn} )[0]
-                    , bPrev = $('#'+#{toJSON goPrevBtn})[0]
-                    , bNext = $('#'+#{toJSON goNextBtn})[0]
-                    , ePn   = $('#'+#{toJSON pgnum}    )[0]
-                    , ePc   = $('#'+#{toJSON pgcnt}    )[0]
-                    , tab$  = $('#'+#{toJSON tabId}    )
+                var bFst    = $(#{toJSON $ "#" <> goFstBtn} )[0]
+                    , bLst  = $(#{toJSON $ "#" <> goLstBtn} )[0]
+                    , bPrev = $(#{toJSON $ "#" <> goPrevBtn})[0]
+                    , bNext = $(#{toJSON $ "#" <> goNextBtn})[0]
+                    , ePn   = $(#{toJSON $ "#" <> pgnum}    )[0]
+                    , ePc   = $(#{toJSON $ "#" <> pgcnt}    )[0]
+                    , tab$  = $(#{toJSON $ "#" <> tabId}    )
                     , addr  = #{toJSON route}
                     , cntRec =#{Number $ fromIntegral cnt};
 
@@ -161,8 +156,8 @@ pager tabId route cnt = do
                     ePn.value = this.act(parseInt(ePn.value));
                     loadData();
                 });
-                $('#'+#{toJSON pgnum}).change(loadData);
-                $('#'+#{toJSON pgsz}).change(loadData);
+                $(#{toJSON $ "#" <> pgnum}).change(loadData);
+                $(#{toJSON $ "#" <> pgsz}).change(loadData);
             }
             addPager();
             |]

@@ -85,26 +85,26 @@ instance (PersistEntity e, Typeable e, HasDictionary m a, Typeable a, YesodHap m
 		=> FieldForm m e (Key a) where
     fieldAForm _ fs ma
         | typeOf ([] :: [e]) == typeOf ([] :: [a])
-            = fmap getLast'
-            $ lift ($logDebug ("fieldAForm: " <> (T.pack $ show ma)) >> return (Last def))
-            <> fmap (Last . fromMaybe (error "Invalid Key") . fromPathPiece . T.pack . show . traceShowId)
-                    (areq intField fs (fmap (read . T.unpack . toPathPiece) ma :: Maybe Integer))
-
+            = debugFormInput "Key a" ma form
         | otherwise = areq (dicKeyField (mempty :: ([m], [a]))) fs ma
+      where
+        form = fmap intToKey (areq intField fs (fmap (read . T.unpack . toPathPiece) ma :: Maybe Integer))
+          where
+            intToKey val 
+                | val == -1 = def 
+                | otherwise = fromMaybe (error "Invalid Key") $ fromPathPiece $ T.pack $ show $ val
 
 instance (PersistEntity e, HasDictionary m a, YesodHap m) 
 		=> FieldForm m e (Maybe (Key a)) where
-    fieldAForm _ fs ma = aopt (dicKeyField (mempty :: ([m],[a]))) fs ma
+    fieldAForm _ fs ma = debugFormInput "Maybe (Key a)" ma $ aopt (dicKeyField (mempty :: ([m],[a]))) fs ma
 
 dicKeyField :: (Typeable a, HasDictionary m a
                 , Yesod m, YesodPersist m, PersistStore (YesodPersistBackend m), RenderMessage m HapMessage) 
             => ([m],[a]) -> Field (HandlerT m IO) (Key a)
 dicKeyField (x :: ([m],[a])) = Field
     { fieldParse = \rawVals _ -> do
-        $logDebug $ "fieldParse: " <> T.pack (show rawVals)
-        let err = $logError $ "Invalid rawVals in dicKeyField for Key of '"
-                            <> dicText
-                            <> "'. rawVals = [" <> T.intercalate ", " rawVals <> "]"
+        $logDebug $ debugMess "dicKeyField fieldParse: {}" (Only $ Shown rawVals)
+        let err = $logError $ debugMess "Invalid rawVals in dicKeyField for Key of '{}'. rawVals = {}" (dicText, Shown rawVals)
         case rawVals of
             [a] -> return $ Right $ (fromPathPiece a :: Maybe (Key a))
             [] -> return $ Right Nothing

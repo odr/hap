@@ -8,8 +8,8 @@ import Hap.Dictionary.Types(FieldForm(..))
 import Hap.Dictionary.Import
 
 instance (RenderMessage m FormMessage) => FieldForm m e Text where
-    fieldAForm _ = areq textField
+    fieldAForm es fs ma = debugFormInput "Text" ma $ areq textField fs ma
 
 instance (RenderMessage m FormMessage) => FieldForm m e (Maybe Text) where
-    fieldAForm _ = aopt textField
+    fieldAForm es fs ma = debugFormInput "Maybe Text" ma $ aopt textField fs ma
 

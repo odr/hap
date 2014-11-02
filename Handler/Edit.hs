@@ -9,8 +9,8 @@ import Foundation
 getEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Html
 getEditR = EH.getEditR
 
-postEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Html
+postEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Value
 postEditR = EH.postEditR
 
-deleteEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Html
+deleteEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Value
 deleteEditR = EH.deleteEditR
