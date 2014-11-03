@@ -104,6 +104,7 @@ instance Yesod App where
                 ])
             $logDebug $ either (T.pack . show) id $ urlJqueryJs master
             addScriptEither $ urlJqueryJs master
+            addScriptEither $ urlJqueryUiJs master
             $(widgetFile "default-layout")
         withUrlRenderer $(hamletFile "templates/default-layout-wrapper.hamlet")
 

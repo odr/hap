@@ -2,12 +2,13 @@
 module Hap.Dictionary.EditHandler(getEditR, postEditR, deleteEditR) where
     
 import Hap.Dictionary.Import
+import Control.Monad(replicateM)
 import qualified Data.Text as T
 
 
 import Hap.Dictionary.Types
 import Hap.Dictionary.Hap
-import Hap.Dictionary.Utils
+import Hap.Dictionary.Utils(pager, getRoot, setMessageWidget)
 
 getEditR :: (YesodHap m) => SomeDictionary m -> PersistValue -> HandlerT m IO Html
 getEditR sd@(SomeDictionary (_ :: ([m],[a]))) v 
@@ -20,22 +21,31 @@ getEditR sd@(SomeDictionary (_ :: ([m],[a]))) v
         root <- getRoot
         let edR = editR root sd v
             lstR = listR root sd
-            newR = editR root sd $ PersistInt64 (-1)
-        formId <- newIdent
-        editorId <- newIdent
+        [pgrId, formId, editorId] <- replicateM 3 newIdent
         defaultLayout $ do
             setTitle $ toHtml title
+            toWidget [cassius|
+                    .cell-editor
+                        padding-right: 10px
+                    .cell-selector
+                        padding-left: 10px
+                |]
             [whamlet|
                 <h1>#{title}
-                <div ##{editorId}>
-                    <form ##{formId} method=post action=#{edR} enctype=#{enctype}>
-                        <table>
-                            ^{widget}
-                        <span>
-                            <button type=submit >Submit
-                            $#<button type=submit onclick=sub('#{newR}')>Add
-                            <button type=button onclick=window.location='#{lstR}'>Close
-                            <button type=button onclick=del()>Delete
+                <table>
+                    <tr>
+                        <td .cell-editor >
+                            <div ##{editorId} onclick=hidePager(this)>
+                                <form ##{formId} method=post action=#{edR} enctype=#{enctype}>
+                                    <table>
+                                        ^{widget}
+                                    <span>
+                                        <button type=submit >Submit
+                                        $#<button type=submit onclick=sub('#{newR}')>Add
+                                        <button type=button onclick=window.location='#{lstR}'>Close
+                                        <button type=button onclick=del()>Delete
+                        <td .cell-selector>
+                            ^{pager pgrId}
             |]
             toWidget [julius|
                 function del() {
@@ -43,7 +53,10 @@ getEditR sd@(SomeDictionary (_ :: ([m],[a]))) v
                         type: "DELETE"
                         , url: #{toJSON edR}
                         , success: function () {window.location=#{toJSON lstR}}
-                    });
+                    });                
+                }
+                function hidePager() {
+                    $(#{toJSON $ "#" <> pgrId}).hide();
                 }
             |]
 
@@ -54,12 +67,12 @@ withEntity (dic :: Dictionary m a) v produce = getMessageRender >>= withMR
   where
     ek = fromPersistValue v :: Either Text (Key a)
     withMR mr
-        = either    ( \t -> showErr dicName (MsgInvalidKey dicName (toPathPiece v) t) >> return Nothing )
+        = either    ( \t -> showErr (MsgInvalidKey dicName (toPathPiece v) t) >> return Nothing )
                     ( \k -> do
                         me <- if k == def
                             then return $ Just def
                             else runDB $ get k
-                        maybe   ( showErr dicName (MsgNotFound dicName $ toPathPiece v) >> return Nothing )
+                        maybe   ( showErr (MsgNotFound dicName $ toPathPiece v) >> return Nothing )
                                 ( fmap Just . produce dicName . Entity k )
                                 me
                     )
@@ -67,12 +80,10 @@ withEntity (dic :: Dictionary m a) v produce = getMessageRender >>= withMR
       where
         dicName = mr $ dDisplayName dic
 
-showErr :: (RenderMessage site a, Yesod site) => Text -> a -> HandlerT site IO ()
-showErr dicName mess = setMessageWidget [whamlet|
+showErr :: (RenderMessage site a, Yesod site) => a -> HandlerT site IO ()
+showErr mess = setMessageWidget [whamlet|
         <h3>_{mess}
         <hr>|]
-    --defaultLayout $ do
-    --    setTitle $ toHtml $ dicName <> " - error"
 
 postEditR :: YesodHap m => SomeDictionary m -> PersistValue -> HandlerT m IO Value
 postEditR sd@(SomeDictionary (_:: ([m],[a]))) v
@@ -94,14 +105,14 @@ postEditR sd@(SomeDictionary (_:: ([m],[a]))) v
                         <h2 .info>_{MsgSaved}
                         <hr>
                     |]
-                redirect $ editR root sd $ toPersistValue k'
+                _ <- redirect $ editR root sd $ toPersistValue k'
                 return $ toJSON k'
             FormFailure xs -> do
                 setMessageWidget [whamlet|
                         <h2 .error>_{MsgError $ T.unlines xs}
                         <hr>
                     |]
-                redirect $ editR root sd v
+                _ <- redirect $ editR root sd v
                 return Null
 --                 editForm (dicName <> ": " <> toPathPiece v) sd v widget enctype
             FormMissing -> do
@@ -109,14 +120,14 @@ postEditR sd@(SomeDictionary (_:: ([m],[a]))) v
                         <h2 .error>_{MsgError "Missing form"}
                         <hr>
                     |]
-                redirect $ editR root sd v
+                _ <- redirect $ editR root sd v
                 return Null
 
 deleteEditR :: YesodHap m => SomeDictionary m -> PersistValue -> HandlerT m IO Value
-deleteEditR sd@(SomeDictionary (_ :: ([m],[a]))) v = do
+deleteEditR (SomeDictionary (_ :: ([m],[a]))) v = do
     mr <- getMessageRender
     let dicName = mr $ dDisplayName (getDictionary :: Dictionary m a)
-    root <- getRoot
-    either  ( \t -> showErr dicName (MsgInvalidKey dicName (toPathPiece v) t) >> return (Bool False) )
+    -- root <- getRoot
+    either  ( \t -> showErr (MsgInvalidKey dicName (toPathPiece v) t) >> return (Bool False) )
             ( \k -> runDB (delete k) >> return (Bool True)) -- >> redirect (listR root sd) )
             (fromPersistValue v :: Either Text (Key a))

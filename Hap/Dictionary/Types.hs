@@ -5,7 +5,7 @@
 module Hap.Dictionary.Types where
 
 import Hap.Dictionary.Import
-import Data.Monoid(Last(..), Endo(..))
+import Data.Monoid(Endo(..))
 import qualified Data.Text as T
 import Data.Typeable
 import           Data.Map (Map)
@@ -16,7 +16,7 @@ import Safe(readMay)
 import Hap.Dictionary.Hap
 import Hap.Dictionary.Utils(getRoot)
 
-import Debug.Trace(traceShowId)
+-- import Debug.Trace(traceShowId)
 
 data Dictionary master e = Dictionary
     { dDisplayName  :: SomeMessage master
@@ -136,18 +136,29 @@ dicKeyField (x :: ([m],[a])) = Field
                 fvWidget k val
       where
         fvWidget k val = do
-            path <- fmap (\r -> editR r (SomeDictionary x) (toPersistValue k)) getRoot
             toWidget [cassius|
                     .inline-button
                         margin-bottom: 10px
                         padding-bottom: 4px
+                    .req-aster
+                        font-size: large
+                        color: red
                 |]
+            root <- getRoot
+            let edR = editR root (SomeDictionary x) $ toPersistValue k
+                lstR = listR root $ SomeDictionary x
             [whamlet|
                     $if isReq
                         <span .req-aster>*
                     <input id=#{idAttr} name=#{nameAttr} *{otherAttrs} type="text" value=#{val} readonly>
-                    <button type=button .inline-button .ui-chooser-view-button>v
-                    <button type=button onclick=window.open('#{path}') .inline-button .ui-chooser-detail-button>d
+                    <button type=button .inline-button .ui-chooser-select-button onclick=sel('#{lstR}','#{toPathPiece k}')>v
+                    <button type=button onclick=window.open('#{edR}') .inline-button .ui-chooser-detail-button>d
+                |]
+            toWidget [julius|
+                function sel(loc, k) {
+                    event.stopPropagation();
+                    showPager(loc, 100);
+                }
                 |]
 
 
