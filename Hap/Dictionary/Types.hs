@@ -5,6 +5,7 @@
 module Hap.Dictionary.Types where
 
 import Hap.Dictionary.Import
+import Control.Monad(liftM2)
 import Data.Monoid(Endo(..))
 import qualified Data.Text as T
 import Data.Typeable
@@ -86,7 +87,7 @@ instance (PersistEntity e, Typeable e, HasDictionary m a, Typeable a, YesodHap m
     fieldAForm _ fs ma
         | typeOf ([] :: [e]) == typeOf ([] :: [a])
             = debugFormInput "Key a" ma form
-        | otherwise = areq (dicKeyField (mempty :: ([m], [a]))) fs ma
+        | otherwise = areq (dicKeyField fs (mempty :: ([m], [a]))) fs ma
       where
         form = fmap intToKey (areq intField fs (fmap (read . T.unpack . toPathPiece) ma :: Maybe Integer))
           where
@@ -96,19 +97,21 @@ instance (PersistEntity e, Typeable e, HasDictionary m a, Typeable a, YesodHap m
 
 instance (PersistEntity e, HasDictionary m a, YesodHap m) 
 		=> FieldForm m e (Maybe (Key a)) where
-    fieldAForm _ fs ma = debugFormInput "Maybe (Key a)" ma $ aopt (dicKeyField (mempty :: ([m],[a]))) fs ma
+    fieldAForm _ fs ma = debugFormInput "Maybe (Key a)" ma $ aopt (dicKeyField fs (mempty :: ([m],[a]))) fs ma
 
 dicKeyField :: (Typeable a, HasDictionary m a
-                , Yesod m, YesodPersist m, PersistStore (YesodPersistBackend m), RenderMessage m HapMessage) 
-            => ([m],[a]) -> Field (HandlerT m IO) (Key a)
-dicKeyField (x :: ([m],[a])) = Field
+                , YesodPersist m, PersistStore (YesodPersistBackend m), PersistQuery (YesodPersistBackend m)
+                , Yesod m, RenderMessage m HapMessage) 
+            => FieldSettings m -> ([m],[a]) -> Field (HandlerT m IO) (Key a)
+dicKeyField fs (x :: ([m],[a])) = Field
     { fieldParse = \rawVals _ -> do
         $logDebug $ debugMess "dicKeyField fieldParse: {}" (Only $ Shown rawVals)
-        let err = $logError $ debugMess "Invalid rawVals in dicKeyField for Key of '{}'. rawVals = {}" (dicText, Shown rawVals)
+        let err = debugMess "Invalid rawVals in dicKeyField for Key of '{}'. rawVals = {}" (dicText, Shown rawVals)
         case rawVals of
-            [a] -> return $ Right $ (fromPathPiece a :: Maybe (Key a))
-            [] -> return $ Right Nothing
-            _ -> err >> return (Left "More than one rawVal in dicKeyField")
+            [a] | fromPathPiece a == Just (def :: Key a) 
+                    -> return $ Right Nothing
+            [a,_]   -> return $ Right $ (fromPathPiece a :: Maybe (Key a))
+            _       -> $logError err >> return (Left $ SomeMessage err)
     , fieldView = fv
     , fieldEnctype = UrlEncoded
     }
@@ -144,23 +147,21 @@ dicKeyField (x :: ([m],[a])) = Field
                         font-size: large
                         color: red
                 |]
+            cnt <- liftHandlerT $ runDB $ count ([] :: [Filter a])
             root <- getRoot
             let edR = editR root (SomeDictionary x) $ toPersistValue k
                 lstR = listR root $ SomeDictionary x
+            lstHead <- liftM2 (\mrHap mr -> mrHap $ MsgSelDictionary (mr dn) $ mr $ fsLabel fs) 
+                            getMessageRender getMessageRender
             [whamlet|
                     $if isReq
                         <span .req-aster>*
-                    <input id=#{idAttr} name=#{nameAttr} *{otherAttrs} type="text" value=#{val} readonly>
-                    <button type=button .inline-button .ui-chooser-select-button onclick=sel('#{lstR}','#{toPathPiece k}')>v
+                    <input id=#{idAttr <> "_id"} type=hidden value=#{toPathPiece k} _value=#{toPathPiece k}>
+                    <input ##{idAttr} name=#{nameAttr} *{otherAttrs} type=text value=#{val} _value=#{val} readonly>
+                    <button type=button .inline-button .ui-chooser-select-button 
+                        onclick=showPager('true','#{lstHead}','#{lstR}',#{cnt},'#{toPathPiece k}','#{idAttr}')>v
                     <button type=button onclick=window.open('#{edR}') .inline-button .ui-chooser-detail-button>d
                 |]
-            toWidget [julius|
-                function sel(loc, k) {
-                    event.stopPropagation();
-                    showPager(loc, 100);
-                }
-                |]
-
 
 editR :: Text -> SomeDictionary m -> PersistValue -> Text
 editR root sd k = root <> "/edit/" <> T.pack (show sd) <> "/" <> toPathPiece k
@@ -170,8 +171,8 @@ listR root sd = root <> "/list/" <> T.pack (show sd)
 
 
 dicFieldAForm :: PersistEntity e => DicField m e -> Entity e -> AForm (HandlerT m IO) (Entity e)
-dicFieldAForm (DicField (ef :: EntityField e t) fs _ _) ent 
-    = fieldLens ef (fieldAForm ([] :: [e]) fs . Just) ent 
+dicFieldAForm (DicField {..}) (ent :: Entity e) 
+    = fieldLens dfEntityField (fieldAForm ([] :: [e]) dfSettings . Just) ent 
 
 dicFieldForm :: PersistEntity e
     => DicField m e -> Entity e 

@@ -1,9 +1,10 @@
-Dictionary: Справочник
+Dictionary dic@Text: Справочник #{dic}
+SelDictionary dic@Text fld@Text: Выбор поля "#{fld}" из справочника "#{dic}" 
 Save: Сохранить
 Saved: Сохранено...
 Error err@Text: Ошибка: #{err}
 
-ListDic dic@Text: Список #{dic}
+#ListDic dic@Text: Список #{dic}
 Id: Ключ
 
 #pager
@@ -16,6 +17,8 @@ PrevPageBtn: Предыдущая страница
 NextPageBtn: Следующая страница
 GoToLastBtn: На последнюю запись
 Of: из
+
+Select: Выбрать
 
 #errors
 InvalidKey dic@Text val@Text err@Text: Ошибочный ключ "#{val}" для справочника "#{dic}". Ошибка: "#{err}"

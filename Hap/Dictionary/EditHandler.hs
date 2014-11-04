@@ -8,7 +8,8 @@ import qualified Data.Text as T
 
 import Hap.Dictionary.Types
 import Hap.Dictionary.Hap
-import Hap.Dictionary.Utils(pager, getRoot, setMessageWidget)
+import Hap.Dictionary.Pager
+import Hap.Dictionary.Utils(getRoot, setMessageWidget)
 
 getEditR :: (YesodHap m) => SomeDictionary m -> PersistValue -> HandlerT m IO Html
 getEditR sd@(SomeDictionary (_ :: ([m],[a]))) v 
@@ -21,12 +22,13 @@ getEditR sd@(SomeDictionary (_ :: ([m],[a]))) v
         root <- getRoot
         let edR = editR root sd v
             lstR = listR root sd
-        [pgrId, formId, editorId] <- replicateM 3 newIdent
+        [selId, formId, editorId] <- replicateM 3 newIdent
         defaultLayout $ do
             setTitle $ toHtml title
             toWidget [cassius|
                     .cell-editor
                         padding-right: 10px
+                        width: 50%
                     .cell-selector
                         padding-left: 10px
                 |]
@@ -44,8 +46,9 @@ getEditR sd@(SomeDictionary (_ :: ([m],[a]))) v
                                         $#<button type=submit onclick=sub('#{newR}')>Add
                                         <button type=button onclick=window.location='#{lstR}'>Close
                                         <button type=button onclick=del()>Delete
-                        <td .cell-selector>
-                            ^{pager pgrId}
+                        <td #selId .cell-selector>
+                            ^{pager}
+                            <button type="button" onclick="selectAndHidePager()">_{MsgSelect}
             |]
             toWidget [julius|
                 function del() {
@@ -56,8 +59,9 @@ getEditR sd@(SomeDictionary (_ :: ([m],[a]))) v
                     });                
                 }
                 function hidePager() {
-                    $(#{toJSON $ "#" <> pgrId}).hide();
+                    $(#{toJSON $ "#" <> selId}).hide();
                 }
+
             |]
 
 withEntity  :: (HasDictionary m e, YesodHap m, ToTypedContent a) 

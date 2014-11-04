@@ -2,43 +2,43 @@
 module Hap.Dictionary.ListHandler where
 
 import Hap.Dictionary.Import
+import Control.Monad(liftM2)
 import qualified Data.Text as T
-import Safe(readMay)
 
 import Hap.Dictionary.Types
-import Hap.Dictionary.Utils(pager, getRoot, showPersistValue, showPersistField, sortByPattern, widgetToHtml)
+import Hap.Dictionary.Pager
+import Hap.Dictionary.Utils(getRoot, showPersistValue, showPersistField, sortByPattern, widgetToHtml)
 import Hap.Dictionary.Hap
 
 getListR :: (YesodHap m) => SomeDictionary m -> HandlerT m IO Html
 getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
     addHeader "Access-Control-Allow-Origin" "*"
     addHeader "Access-Control-Allow-Methods" "GET"
-    cnt <- runDB $ count ([] :: [Filter a])
+    cnt <- fmap (Number . fromIntegral) $ runDB $ count ([] :: [Filter a])
     $logDebug $ T.pack $ "cnt = " ++ show cnt
-    mr <- getMessageRender
+    lstHead <- liftM2 (\mrHap mr -> mrHap $ MsgDictionary $ mr dn) getMessageRender getMessageRender
     root <- getRoot
     pgr <- newIdent
     defaultLayout $ do
-        setTitleI $ MsgListDic $ mr dn
-        [whamlet|
-            <h1>_{MsgDictionary} #{mr dn}
-            ^{pager pgr}
-        |]
+        setTitleI lstHead -- $ MsgListDic $ mr dn
+        pager
         toWidget [julius|
-            showPager(#{toJSON $ listR root sd}, #{Number $ fromIntegral cnt});
+            showPager(false, #{toJSON lstHead}, #{toJSON $ listR root sd}, #{cnt});
             |]
   where
     dn  = case getDictionary :: Dictionary m a of
         (Dictionary {..}) -> dDisplayName
 
-
 postListR :: (YesodHap m) => SomeDictionary m -> HandlerT m IO Html
 postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
     addHeader "Access-Control-Allow-Origin" "*"
     addHeader "Access-Control-Allow-Methods" "POST"
-    (lim, off) <- fmap ((getParam 3 "lim" &&& getParam 0 "off") . fst) runRequestBody
-    (res :: [Entity a]) <- runDB $ selectList [] [Asc persistIdField, OffsetBy off, LimitTo lim]
+
+    pp <- getPagerParams
+
+    (res :: [Entity a]) <- runDB $ selectList [] [Asc persistIdField, OffsetBy $ ppOffset pp, LimitTo $ ppLimit pp]
     let recs = map  (   entityKey
+                    &&& dShowFunc dic
                     &&& map (showPersistValue . snd)
                         . sortByPattern getDBName fst (dFields dic)
                         . (\(PersistMap m) -> m) . toPersistValue . entityVal
@@ -48,23 +48,26 @@ postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
         [whamlet|
             <table width=100% border=1px>
                 <tr>
-                    <th align=center bgcolor=blue width=20px>
-                        <a href=#{editR root sd defKey}>+
+                    $if not (ppIsSelect pp)
+                        <th align=center bgcolor=blue width=20px>
+                            <a href=#{editR root sd defKey}>+
                     $forall df <- dFields dic
                         <th  bgcolor=blue>_{maybe (fsLabel (dfSettings df)) SomeMessage (dfShort df)}
                     <th align=center bgcolor=blue width=20px>-
-                $forall (key,rec) <- recs
-                    <tr>
-                        <td align=center>
-                            <a href=#{editR root sd (toPersistValue key)}>e
-                        <td .key>#{showPersistField key}
-                        $forall x <- rec
-                                <td align=left>#{x}
-                        <td align=center>
-                            <button onclick=pdel('#{editR root sd (toPersistValue key)}','#{listR root sd}')>-
+                $forall (key,(txt, rec)) <- recs
+                    $with isSelected <- showPersistField key == ppIdRec pp
+                        <tr onclick=pRowSel(this) :isSelected:.row-selected>
+                            $if not (ppIsSelect pp)
+                                <td align=center>
+                                    <a href=#{editR root sd (toPersistValue key)}>e
+                            <td .entity-key>#{showPersistField key}
+                            <td .entity-val hidden>#{txt}
+                            $forall x <- rec
+                                    <td align=left>#{x}
+                            <td align=center>
+                                <button onclick=pdel('#{editR root sd (toPersistValue key)}','#{listR root sd}')>-
             |]
   where
     dic = getDictionary :: Dictionary m a
     defKey = toPersistValue (def :: Key a)
-    getParam (v::Int) nm ps = fromMaybe v $ lookup nm ps >>= readMay . T.unpack
 

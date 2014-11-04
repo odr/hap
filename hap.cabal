@@ -20,6 +20,7 @@ library
                     Hap.Dictionary.Types
                     Hap.Dictionary.FieldFormI
                     Hap.Dictionary.EDSL
+                    Hap.Dictionary.Pager
                     Hap.Dictionary.Utils
                     Settings
                     Settings.StaticFiles

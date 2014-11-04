@@ -1,9 +1,10 @@
-Dictionary: Dictionary
+Dictionary dic@Text: Dictionary #{dic}
+SelDictionary dic@Text fld@Text: Select for field "#{fld}" from Dictionary "#{dic}"
 Save: Save
 Saved: Saved...
 Error err@Text: Error: #{err}
 
-ListDic dic@Text: List of #{dic}
+#ListDic dic@Text: List of #{dic}
 Id: Key
 
 #pager
@@ -16,6 +17,8 @@ PrevPageBtn: Previous page
 NextPageBtn: Next page
 GoToLastBtn: Go to the last record
 Of: of
+
+Select: Select
 
 #errors
 InvalidKey dic@Text val@Text err@Text: The key "#{val}" for dictionary "#{dic}" is invalid. An error: "#{err}"
