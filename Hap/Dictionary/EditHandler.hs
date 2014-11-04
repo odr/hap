@@ -45,21 +45,17 @@ getEditR sd@(SomeDictionary (_ :: ([m],[a]))) v
                                         <button type=submit >Submit
                                         $#<button type=submit onclick=sub('#{newR}')>Add
                                         <button type=button onclick=window.location='#{lstR}'>Close
-                                        <button type=button onclick=del()>Delete
-                        <td #selId .cell-selector>
-                            ^{pager}
-                            <button type="button" onclick="selectAndHidePager()">_{MsgSelect}
+                                        <button type=button onclick=editor_del()>Delete
+                        <td ##{selId} .cell-selector hidden>
+                            ^{pager $ Just selId}
             |]
             toWidget [julius|
-                function del() {
+                function editor_del() {
                     $.ajax({
                         type: "DELETE"
                         , url: #{toJSON edR}
                         , success: function () {window.location=#{toJSON lstR}}
                     });                
-                }
-                function hidePager() {
-                    $(#{toJSON $ "#" <> selId}).hide();
                 }
 
             |]

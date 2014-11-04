@@ -6,6 +6,7 @@ module Hap.Dictionary.Types where
 
 import Hap.Dictionary.Import
 import Control.Monad(liftM2)
+import qualified Control.Monad.Trans.State as State
 import Data.Monoid(Endo(..))
 import qualified Data.Text as T
 import Data.Typeable
@@ -15,12 +16,14 @@ import Data.Char(toLower)
 import Safe(readMay)
 
 import Hap.Dictionary.Hap
-import Hap.Dictionary.Utils(getRoot)
+import Hap.Dictionary.Utils(getRoot, showPersistField)
+
 
 -- import Debug.Trace(traceShowId)
 
 data Dictionary master e = Dictionary
     { dDisplayName  :: SomeMessage master
+    , dPrimary      :: DicField master e
     , dFields       :: [DicField master e]
     , dShowFunc     :: Entity e -> Text
     } -- deriving Typeable
@@ -56,7 +59,8 @@ instance Monoid FieldKind where
         | ReadOnly `elem` [a,b] = ReadOnly
         | otherwise             = Editable
 
-data DicField m e   = forall t. (FieldForm m e t) 
+
+data DicField m e   = forall t. (FieldForm m e t, FieldToText m t) 
                     => DicField 
     { dfEntityField :: EntityField e t
     , dfSettings    :: FieldSettings m
@@ -67,6 +71,26 @@ data DicField m e   = forall t. (FieldForm m e t)
 
 getDBName :: (PersistEntity e) => DicField m e -> Text
 getDBName (DicField {..}) = unDBName $ fieldDB $ persistFieldDef dfEntityField
+
+class FieldToText m a where
+    fieldToText :: a -> HandlerT m IO (Maybe Text)
+
+instance (HasDictionary m a, YesodPersist m, PersistStore (YesodPersistBackend m)) 
+        => FieldToText m (Key a) where
+    fieldToText k = runDB $ fmap (fmap $ showFunc . Entity k) $ get k
+      where
+        showFunc  = case getDictionary :: Dictionary m a of
+            (Dictionary {..}) -> dShowFunc
+
+instance FieldToText m a => FieldToText m (Maybe a) where
+    fieldToText = maybe (return Nothing) fieldToText
+
+entityToTexts :: HasDictionary m a => Entity a -> HandlerT m IO [Maybe Text]
+entityToTexts ent = fmap ((Just (showPersistField $ entityKey ent):) . reverse)
+                    $ State.execStateT (mapM_ (\df -> fToT df ent) $ dFields getDictionary) []
+  where
+    fToT :: (PersistEntity a) => DicField m a -> Entity a -> State.StateT [Maybe Text] (HandlerT m IO) (Entity a)
+    fToT (DicField{..}) = fieldLens dfEntityField (\fld -> lift (fieldToText fld) >>= State.modify . (:) >> return fld)
 
 class (RenderMessage m FormMessage) => FieldForm m e a where
     fieldAForm :: [e] -> FieldSettings m -> Maybe a -> AForm (HandlerT m IO) a
@@ -82,24 +106,15 @@ instance (PersistEntity a) => Default (Key a) where
 instance (PersistEntity a, Default a) => Default (Entity a) where
     def = Entity def def
 
-instance (PersistEntity e, Typeable e, HasDictionary m a, Typeable a, YesodHap m) 
+instance (PersistEntity e, Typeable e, HasDictionary m a, YesodHap m) 
 		=> FieldForm m e (Key a) where
-    fieldAForm _ fs ma
-        | typeOf ([] :: [e]) == typeOf ([] :: [a])
-            = debugFormInput "Key a" ma form
-        | otherwise = areq (dicKeyField fs (mempty :: ([m], [a]))) fs ma
-      where
-        form = fmap intToKey (areq intField fs (fmap (read . T.unpack . toPathPiece) ma :: Maybe Integer))
-          where
-            intToKey val 
-                | val == -1 = def 
-                | otherwise = fromMaybe (error "Invalid Key") $ fromPathPiece $ T.pack $ show $ val
+    fieldAForm _ fs ma = areq (dicKeyField fs (mempty :: ([m], [a]))) fs ma
 
 instance (PersistEntity e, HasDictionary m a, YesodHap m) 
 		=> FieldForm m e (Maybe (Key a)) where
     fieldAForm _ fs ma = debugFormInput "Maybe (Key a)" ma $ aopt (dicKeyField fs (mempty :: ([m],[a]))) fs ma
 
-dicKeyField :: (Typeable a, HasDictionary m a
+dicKeyField :: (HasDictionary m a
                 , YesodPersist m, PersistStore (YesodPersistBackend m), PersistQuery (YesodPersistBackend m)
                 , Yesod m, RenderMessage m HapMessage) 
             => FieldSettings m -> ([m],[a]) -> Field (HandlerT m IO) (Key a)
@@ -156,7 +171,7 @@ dicKeyField fs (x :: ([m],[a])) = Field
             [whamlet|
                     $if isReq
                         <span .req-aster>*
-                    <input id=#{idAttr <> "_id"} type=hidden value=#{toPathPiece k} _value=#{toPathPiece k}>
+                    <input id=#{idAttr <> "_id"} name=#{nameAttr} type=hidden value=#{toPathPiece k} _value=#{toPathPiece k}>
                     <input ##{idAttr} name=#{nameAttr} *{otherAttrs} type=text value=#{val} _value=#{val} readonly>
                     <button type=button .inline-button .ui-chooser-select-button 
                         onclick=showPager('true','#{lstHead}','#{lstR}',#{cnt},'#{toPathPiece k}','#{idAttr}')>v
@@ -198,6 +213,7 @@ class 	(Default e, PersistEntity e, PersistEntityBackend e ~ YesodPersistBackend
 		) 
 		=> HasDictionary m e where
 	getDictionary :: Dictionary m e
+
 
 
 dictionaryForm :: HasDictionary m e

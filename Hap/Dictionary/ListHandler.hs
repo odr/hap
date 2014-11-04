@@ -18,10 +18,9 @@ getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
     $logDebug $ T.pack $ "cnt = " ++ show cnt
     lstHead <- liftM2 (\mrHap mr -> mrHap $ MsgDictionary $ mr dn) getMessageRender getMessageRender
     root <- getRoot
-    pgr <- newIdent
     defaultLayout $ do
         setTitleI lstHead -- $ MsgListDic $ mr dn
-        pager
+        pager Nothing
         toWidget [julius|
             showPager(false, #{toJSON lstHead}, #{toJSON $ listR root sd}, #{cnt});
             |]
@@ -37,12 +36,16 @@ postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
     pp <- getPagerParams
 
     (res :: [Entity a]) <- runDB $ selectList [] [Asc persistIdField, OffsetBy $ ppOffset pp, LimitTo $ ppLimit pp]
+    recs <- mapM (\r -> fmap (\rec -> (rec, entityKey r, dShowFunc dic r)) $ entityToTexts r) res
+{-
     let recs = map  (   entityKey
                     &&& dShowFunc dic
-                    &&& map (showPersistValue . snd)
+                    &&& -- zipWith () (dFields dic)
+                        map (showPersistValue . snd)
                         . sortByPattern getDBName fst (dFields dic)
                         . (\(PersistMap m) -> m) . toPersistValue . entityVal
                     ) res
+-}
     root <- getRoot
     widgetToHtml $ do
         [whamlet|
@@ -51,21 +54,22 @@ postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
                     $if not (ppIsSelect pp)
                         <th align=center bgcolor=blue width=20px>
                             <a href=#{editR root sd defKey}>+
-                    $forall df <- dFields dic
+                    $forall df <- dPrimary dic : dFields dic
                         <th  bgcolor=blue>_{maybe (fsLabel (dfSettings df)) SomeMessage (dfShort df)}
                     <th align=center bgcolor=blue width=20px>-
-                $forall (key,(txt, rec)) <- recs
+                $forall (rec,key,txt) <- recs
                     $with isSelected <- showPersistField key == ppIdRec pp
-                        <tr onclick=pRowSel(this) :isSelected:.row-selected>
+                        <tr onclick=pRowSel(this) ondblclick=pRowDblClk(this);
+                                 :isSelected:.row-selected>
                             $if not (ppIsSelect pp)
                                 <td align=center>
                                     <a href=#{editR root sd (toPersistValue key)}>e
-                            <td .entity-key>#{showPersistField key}
+                            <td .entity-key hidden>#{showPersistField key}
                             <td .entity-val hidden>#{txt}
                             $forall x <- rec
-                                    <td align=left>#{x}
+                                    <td align=left>#{fromMaybe "" x}
                             <td align=center>
-                                <button onclick=pdel('#{editR root sd (toPersistValue key)}','#{listR root sd}')>-
+                                <button type=button onclick=pdel('#{editR root sd (toPersistValue key)}','#{listR root sd}')>-
             |]
   where
     dic = getDictionary :: Dictionary m a

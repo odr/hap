@@ -30,8 +30,8 @@ getPagerParams
     getB nm     = maybe False (== "true") . lookup nm
 
 pager  :: (MonadThrow m, RenderMessage site HapMessage, MonadBaseControl IO m, MonadIO m)
-       => WidgetT site m ()
-pager = do
+       => Maybe Text -> WidgetT site m ()
+pager mbSelId = do
     pgr <- newIdent
     toWidget [cassius|
         .pager-buttons
@@ -52,9 +52,11 @@ pager = do
             color: yellow
         |]
     [whamlet|
-        <div ##{pgr} hidden .pager>
+        <div ##{pgr} .pager>
             <header .pager-header>
             <div .pager-buttons>
+                $if mbSelId /= Nothing
+                    <button type="button" onclick="selectAndHidePager()">_{MsgSelect}
                 <button .first-btn .pager-btn title=_{MsgGoToFirstBtn}><<
                 <button .prev-btn  .pager-btn title=_{MsgPrevPageBtn}><
                 <span   .pager-text>_{MsgPage}
@@ -67,7 +69,7 @@ pager = do
                 <input  .pgsz .pager-input>
                 <span   .pager-text>_{MsgRecCount}
                 <span   .reccnt>
-            <div .pager-content>
+                <div .pager-content>
     |]
     let pgrJs = toJSON $ "#" <> pgr
     toWidget
@@ -93,12 +95,21 @@ pager = do
             function pRowSel(row) {
                 $(".row-selected", $(#{pgrJs})).removeClass("row-selected");
                 row.className += " row-selected";
-                $('#' + __pager_sel_src_id + "_id").attr("_value", $(".entity-key", row).val());
-                $('#' + __pager_sel_src_id).attr("_value", $(".entity-val", row).val());
+                $('#' + __pager_sel_src_id + "_id").attr("_value", $(".entity-key", row).text());
+                $('#' + __pager_sel_src_id).attr("_value", $(".entity-val", $(row)).text());
+            }
+
+            function pRowDblClk(row) {
+                pRowSel(row);
+                if (#{toJSON $ mbSelId == Nothing})
+                    window.location = $("a", row).attr('href');
+                else 
+                    selectAndHidePager();
             }
 
             function showPager(isSel, hdr, addr, cnt, idRec, idAttr) {
-                event.stopPropagation();
+                if (!!event)
+                    event.stopPropagation();
                 __pager_sel_src_id = idAttr;
                 var pgr$ = $(#{pgrJs})
                     , bFst  = $('.first-btn', pgr$)[0]
@@ -139,8 +150,10 @@ pager = do
                 });
                 $('.pgnum', pgr$).change(loadData);
                 $('.pgsz' , pgr$).val(ps).change(loadData);
-                loadData(); 
-                return pgr$.show();
+                loadData();
+                var containerId = #{toJSON $ fromMaybe "" mbSelId};
+                $(#{toJSON $ "#" <> fromMaybe "" mbSelId}).show();
+                return pgr$;
             }
 
             function selectAndHidePager() {
@@ -150,7 +163,9 @@ pager = do
                 key$.val(key$.attr("_value"));
                 val$.val(val$.attr("_value"));
 
-                if (!!hidePager)
-                    hidePager();
+                hidePager();
+            }
+            function hidePager() {
+                $(#{toJSON $ "#" <> fromMaybe "" mbSelId}).hide();
             }
             |]

@@ -88,6 +88,7 @@ library
                  , time                         >= 1.4
                  , data-default-generics        >= 0.3
                  , text-format                  >= 0.3
+                 , transformers                 >= 0.3
 
     -- see https://github.com/yesodweb/yesod/issues/814
     if !os(windows)

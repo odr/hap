@@ -18,9 +18,9 @@ instance HasMapDict App where
 instance Default User
 instance HasDictionary App User where
     getDictionary
-        = mkDic MsgUsers
-            [ fld UserId
-            , fld UserIdent     # label MsgIdent
+        = mkDic MsgUsers 
+            ( fld UserIdent     )
+            [ fld UserIdent     # label MsgIdent
             , fld UserPassword  # label MsgPassword
             ]
             # recShowField UserIdent
@@ -28,9 +28,9 @@ instance HasDictionary App User where
 instance Default Email
 instance HasDictionary App Email where
     getDictionary
-        = mkDic MsgEmails
-            [ fld EmailId
-            , fld EmailUser     # label MsgUser
+        = mkDic MsgEmails 
+            ( fld EmailId       )
+            [ fld EmailUser     # label MsgUser
             , fld EmailEmail    # label MsgEmail
             , fld EmailVerkey   # label MsgVerkey
                                 # readonly

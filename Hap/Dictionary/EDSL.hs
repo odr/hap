@@ -15,14 +15,15 @@ import Hap.Dictionary.FieldFormI as Hap.Dictionary.EDSL()
 
 ------------------- DicEDSL -----------------------------
 mkDic   :: (RenderMessage m mess, PersistEntity a, Typeable a, PersistEntityBackend a ~ SqlBackend)
-        => mess -> [DicField m a] -> Dictionary m a
-mkDic m flds = Dictionary
+        => mess -> DicField m a -> [DicField m a] -> Dictionary m a
+mkDic m pk flds = Dictionary
     { dDisplayName  = SomeMessage m
+    , dPrimary      = pk
     , dFields       = flds
     , dShowFunc     = showEF persistIdField
     }
 
-fld :: (PersistEntity a, FieldForm m a t) => EntityField a t -> DicField m a
+fld :: (PersistEntity a, FieldForm m a t, FieldToText m t) => EntityField a t -> DicField m a
 fld ef = DicField
     { dfEntityField = ef
     , dfSettings    = "" { fsLabel = hn }
@@ -57,3 +58,4 @@ showField (DicField {..}) = showEF dfEntityField
 
 someDic :: HasDictionary master a => [a] -> SomeDictionary master
 someDic xs = SomeDictionary ([],xs)
+

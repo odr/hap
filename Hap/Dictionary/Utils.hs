@@ -64,4 +64,3 @@ widgetToHtml = fmap pageBody . widgetToPageContent >=> withUrlRenderer
 
 setMessageWidget :: (Yesod site) => WidgetT site IO () -> HandlerT site IO ()
 setMessageWidget = widgetToHtml >=> setMessage
-
