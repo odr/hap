@@ -7,7 +7,7 @@ import qualified Data.Text as T
 
 import Hap.Dictionary.Types
 import Hap.Dictionary.Pager
-import Hap.Dictionary.Utils(getRoot, showPersistValue, showPersistField, sortByPattern, widgetToHtml)
+import Hap.Dictionary.Utils(getRoot, showPersistField, widgetToHtml)
 import Hap.Dictionary.Hap
 
 getListR :: (YesodHap m) => SomeDictionary m -> HandlerT m IO Html

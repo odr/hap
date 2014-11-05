@@ -1,16 +1,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Handler.Edit(getEditR, postEditR, deleteEditR) where
     
-import Hap.Dictionary.Import
-import Hap.Dictionary.Types(SomeDictionary)
+import Import
 import qualified Hap.Dictionary.EditHandler as EH
-import Foundation
 
-getEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Html
-getEditR = EH.getEditR
+getEditR :: String -> PersistValue -> HandlerT App IO Html
+getEditR = EH.getEditR . read
 
-postEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Value
-postEditR = EH.postEditR
+postEditR :: String -> PersistValue -> HandlerT App IO Value
+postEditR = EH.postEditR . read
 
-deleteEditR :: SomeDictionary App -> PersistValue -> HandlerT App IO Value
-deleteEditR = EH.deleteEditR
+deleteEditR :: String -> PersistValue -> HandlerT App IO Value
+deleteEditR = EH.deleteEditR . read

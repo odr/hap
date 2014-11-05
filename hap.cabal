@@ -28,7 +28,7 @@ library
                     -- Foundation_
                     Model
                     Foundation
-                    -- Dics
+                    Dics
                     Import
                     Handler.Home
                     Handler.List

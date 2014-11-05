@@ -48,6 +48,8 @@ pager mbSelId = do
             width: 1280px
         .row-selected
             background-color: lightgrey
+        .pager-header
+            font-size: 20px
         th
             color: yellow
         |]

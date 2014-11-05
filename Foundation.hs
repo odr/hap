@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Foundation (module Foundation) where
 
 import Hap.Dictionary.Import
@@ -20,13 +19,8 @@ import Yesod.Static
 import qualified Database.Persist
 import Yesod.Core.Types (Logger)
 
-import Data.Char(toLower)
-import qualified Data.Map as M
-
 import Hap.Dictionary.EDSL
-
 import Hap.Dictionary.Hap(Hap, HapMessage)
---import Hap.Dictionary.Types(SomeDictionary(..), HasMapDict)
 
 import Model
 import           Settings (widgetFile, Extra (..))
@@ -192,7 +186,7 @@ getExtra = fmap (appExtra . settings) getYesod
 -- https://github.com/yesodweb/yesod/wiki/Sending-email
 instance YesodHap App
 
-#include "Dics.hs"
+-- #include "Dics.hs"
 {-
 instance HasMapDict App where
     getMapDict =  M.fromList $ map (map toLower . show &&& id)

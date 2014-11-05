@@ -9,9 +9,10 @@ import Settings.Development     as Import
 import Settings.StaticFiles     as Import
 import Model                    as Import
 import Foundation               as Import
--- import Dics                     as Import
+import Dics                     as Import()
 
 
+{-
 pureLayout :: Widget -> Handler Html
 pureLayout widget = do
     pc <- widgetToPageContent widget
@@ -29,3 +30,5 @@ widgetToHtml = fmap pageBody . widgetToPageContent >=> withUrlRenderer
 
 setMessageWidget :: Widget -> Handler ()
 setMessageWidget = widgetToHtml >=> setMessage
+-}
+

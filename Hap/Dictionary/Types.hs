@@ -13,7 +13,6 @@ import Data.Typeable
 import           Data.Map (Map)
 import qualified Data.Map as M
 import Data.Char(toLower)
-import Safe(readMay)
 
 import Hap.Dictionary.Hap
 import Hap.Dictionary.Utils(getRoot, showPersistField)
@@ -30,6 +29,7 @@ data Dictionary master e = Dictionary
 
 class HasMapDict master where
 	getMapDict :: Map String (SomeDictionary master)
+    -- getDict :: String -> SomeDictionary master
 
 data SomeDictionary master
     = forall a. (HasDictionary master a) => SomeDictionary { unSomeDictionary :: ([master], [a]) }
@@ -45,10 +45,6 @@ instance Ord (SomeDictionary master) where
 
 instance HasMapDict master => Read (SomeDictionary master) where
     readsPrec _ = \s -> [(maybe (error "Can't parse Dictionary") id $ M.lookup (map toLower s) getMapDict, "")]
-
-instance HasMapDict master => PathPiece (SomeDictionary master) where
-    toPathPiece = T.pack . show
-    fromPathPiece = readMay . T.unpack
 
 data FieldKind = Hidden | ReadOnly | Editable deriving (Eq, Show, Read)
 
@@ -213,8 +209,6 @@ class 	(Default e, PersistEntity e, PersistEntityBackend e ~ YesodPersistBackend
 		) 
 		=> HasDictionary m e where
 	getDictionary :: Dictionary m e
-
-
 
 dictionaryForm :: HasDictionary m e
     => Maybe (Entity e) 
