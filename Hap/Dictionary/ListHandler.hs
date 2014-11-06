@@ -11,7 +11,7 @@ import Hap.Dictionary.Utils(getRoot, showPersistField, widgetToHtml)
 import Hap.Dictionary.Hap
 
 getListR :: (YesodHap m) => SomeDictionary m -> HandlerT m IO Html
-getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
+getListR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) = do
     addHeader "Access-Control-Allow-Origin" "*"
     addHeader "Access-Control-Allow-Methods" "GET"
     cnt <- fmap (Number . fromIntegral) $ runDB $ count ([] :: [Filter a])
@@ -29,7 +29,7 @@ getListR sd@(SomeDictionary (_:: ([m],[a]))) = do
         (Dictionary {..}) -> dDisplayName
 
 postListR :: (YesodHap m) => SomeDictionary m -> HandlerT m IO Html
-postListR sd@(SomeDictionary (_ :: ([m],[a]))) = do
+postListR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) = do
     addHeader "Access-Control-Allow-Origin" "*"
     addHeader "Access-Control-Allow-Methods" "POST"
 

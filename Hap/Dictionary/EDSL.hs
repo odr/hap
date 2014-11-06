@@ -21,6 +21,7 @@ mkDic m pk flds = Dictionary
     , dPrimary      = pk
     , dFields       = flds
     , dShowFunc     = showEF persistIdField
+    , dSubDics      = []
     }
 
 fld :: (PersistEntity a, FieldForm m a t, FieldToText m t) => EntityField a t -> DicField m a
@@ -57,5 +58,5 @@ showField :: PersistEntity e => DicField m e -> Entity e -> Text
 showField (DicField {..}) = showEF dfEntityField
 
 someDic :: HasDictionary master a => [a] -> SomeDictionary master
-someDic xs = SomeDictionary ([],xs)
+someDic xs = SomeDictionary xs
 

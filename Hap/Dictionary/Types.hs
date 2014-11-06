@@ -1,6 +1,7 @@
 {-# LANGUAGE ExistentialQuantification, ScopedTypeVariables, ConstraintKinds
 			, FlexibleInstances, LambdaCase, TemplateHaskell, QuasiQuotes, MultiParamTypeClasses
-			, FlexibleContexts, OverloadedStrings, RecordWildCards #-}
+			, FlexibleContexts, OverloadedStrings, RecordWildCards
+            , FunctionalDependencies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Hap.Dictionary.Types where
 
@@ -17,34 +18,59 @@ import Data.Char(toLower)
 import Hap.Dictionary.Hap
 import Hap.Dictionary.Utils(getRoot, showPersistField)
 
+class   (Default e, PersistEntity e, PersistEntityBackend e ~ YesodPersistBackend m
+        , Typeable e, PersistField e, PathPiece (Key e), Show e
+        ) 
+        => HasDictionary m e | e -> m where
+    getDictionary :: Dictionary m e
 
--- import Debug.Trace(traceShowId)
+class   ( Yesod m, RenderMessage m FormMessage, RenderMessage m HapMessage
+        , YesodPersist m, PersistStore (YesodPersistBackend m), PersistQuery (YesodPersistBackend m)
+        )
+        => YesodHap m where
 
-data Dictionary master e = Dictionary
-    { dDisplayName  :: SomeMessage master
-    , dPrimary      :: DicField master e
-    , dFields       :: [DicField master e]
+class HasSubDic m p e | e -> m p where
+    getSubDic :: Dictionary m e -> SubDic m p e
+
+class HasMapDict m where
+	getMapDict :: Map String (SomeDictionary m)
+    -- getDict :: String -> SomeDictionary m
+
+data Dictionary m e = Dictionary
+    { dDisplayName  :: SomeMessage m
+    , dPrimary      :: DicField m e
+    , dFields       :: [DicField m e]
     , dShowFunc     :: Entity e -> Text
-    } -- deriving Typeable
+    , dSubDics      :: [SomeSubDic m e]
+    }
 
-class HasMapDict master where
-	getMapDict :: Map String (SomeDictionary master)
-    -- getDict :: String -> SomeDictionary master
+data SomeDictionary m
+    = forall a. (HasDictionary m a) => SomeDictionary { unSomeDictionary :: [a] }
 
-data SomeDictionary master
-    = forall a. (HasDictionary master a) => SomeDictionary { unSomeDictionary :: ([master], [a]) }
+instance Show (SomeDictionary m) where
+    show (SomeDictionary (_:: [e])) = show $ typeRep (Proxy :: Proxy e)
 
-instance Show (SomeDictionary master) where
-    show (SomeDictionary (_:: ([m],[e]))) = show $ typeRep (Proxy :: Proxy e)
-
-instance Eq (SomeDictionary master) where
+instance Eq (SomeDictionary m) where
     (==) = (==) `on` show
 
-instance Ord (SomeDictionary master) where
+instance Ord (SomeDictionary m) where
     compare = compare `on` show
 
-instance HasMapDict master => Read (SomeDictionary master) where
+instance HasMapDict m => Read (SomeDictionary m) where
     readsPrec _ = \s -> [(maybe (error "Can't parse Dictionary") id $ M.lookup (map toLower s) getMapDict, "")]
+
+data SubDicType = SubDicLoadAll | SubDicLoadOnRequest deriving (Show, Read, Eq, Ord)
+
+data SubDic m p e = SubDic
+    { sdDic     :: Dictionary m e 
+    , sdType    :: SubDicType
+    , sdRef     :: EntityField e (Key p)
+    }
+
+data SomeSubDic m p 
+    = forall e. HasSubDic m p e => SomeSubDic { unSomeSubDic :: [e] }
+
+----- Fields ----    
 
 data FieldKind = Hidden | ReadOnly | Editable deriving (Eq, Show, Read)
 
@@ -104,17 +130,17 @@ instance (PersistEntity a, Default a) => Default (Entity a) where
 
 instance (PersistEntity e, Typeable e, HasDictionary m a, YesodHap m) 
 		=> FieldForm m e (Key a) where
-    fieldAForm _ fs ma = areq (dicKeyField fs (mempty :: ([m], [a]))) fs ma
+    fieldAForm _ fs ma = areq (dicKeyField fs (mempty :: [a])) fs ma
 
 instance (PersistEntity e, HasDictionary m a, YesodHap m) 
 		=> FieldForm m e (Maybe (Key a)) where
-    fieldAForm _ fs ma = debugFormInput "Maybe (Key a)" ma $ aopt (dicKeyField fs (mempty :: ([m],[a]))) fs ma
+    fieldAForm _ fs ma = debugFormInput "Maybe (Key a)" ma $ aopt (dicKeyField fs (mempty :: [a])) fs ma
 
 dicKeyField :: (HasDictionary m a
                 , YesodPersist m, PersistStore (YesodPersistBackend m), PersistQuery (YesodPersistBackend m)
                 , Yesod m, RenderMessage m HapMessage) 
-            => FieldSettings m -> ([m],[a]) -> Field (HandlerT m IO) (Key a)
-dicKeyField fs (x :: ([m],[a])) = Field
+            => FieldSettings m -> [a] -> Field (HandlerT m IO) (Key a)
+dicKeyField (fs :: FieldSettings m) (x :: [a]) = Field
     { fieldParse = \rawVals _ -> do
         $logDebug $ debugMess "dicKeyField fieldParse: {}" (Only $ Shown rawVals)
         let err = debugMess "Invalid rawVals in dicKeyField for Key of '{}'. rawVals = {}" (dicText, Shown rawVals)
@@ -203,13 +229,6 @@ dicFieldForm' df le
         FormSuccess le' -> Last $ Just le'
         _               -> le
 
-class 	(Default e, PersistEntity e, PersistEntityBackend e ~ YesodPersistBackend m
-		, Typeable e, PersistField e
-		, PathPiece (Key e), Show e
-		) 
-		=> HasDictionary m e where
-	getDictionary :: Dictionary m e
-
 dictionaryForm :: HasDictionary m e
     => Maybe (Entity e) 
     -> MForm (HandlerT m IO) ((FormResult (Entity e), Entity e), [FieldView m] -> [FieldView m])
@@ -222,7 +241,3 @@ dictionaryForm me
 
 dictionaryAForm :: HasDictionary m e => Maybe (Entity e) -> AForm (HandlerT m IO) (Entity e)
 dictionaryAForm = formToAForm . fmap (fst *** ($ [])) . dictionaryForm
-
-class (Yesod m, RenderMessage m FormMessage, RenderMessage m HapMessage
-        , YesodPersist m, PersistStore (YesodPersistBackend m), PersistQuery (YesodPersistBackend m)) 
-    => YesodHap m where

@@ -12,7 +12,7 @@ import Hap.Dictionary.Pager
 import Hap.Dictionary.Utils(getRoot, setMessageWidget)
 
 getEditR :: (YesodHap m) => SomeDictionary m -> PersistValue -> HandlerT m IO Html
-getEditR sd@(SomeDictionary (_ :: ([m],[a]))) v 
+getEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v 
     = fmap (fromMaybe mempty) $ withEntity (getDictionary :: Dictionary m a) v produce
   where
     produce dicName ent = do
@@ -86,7 +86,7 @@ showErr mess = setMessageWidget [whamlet|
         <hr>|]
 
 postEditR :: YesodHap m => SomeDictionary m -> PersistValue -> HandlerT m IO Value
-postEditR sd@(SomeDictionary (_:: ([m],[a]))) v
+postEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
     = fmap (fromMaybe Null) $ withEntity (getDictionary :: Dictionary m a) v produce
   where
     produce _ ent = do
@@ -124,7 +124,7 @@ postEditR sd@(SomeDictionary (_:: ([m],[a]))) v
                 return Null
 
 deleteEditR :: YesodHap m => SomeDictionary m -> PersistValue -> HandlerT m IO Value
-deleteEditR (SomeDictionary (_ :: ([m],[a]))) v = do
+deleteEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v = do
     mr <- getMessageRender
     let dicName = mr $ dDisplayName (getDictionary :: Dictionary m a)
     -- root <- getRoot
