@@ -36,7 +36,7 @@ postListR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) = do
     pp <- getPagerParams
 
     (res :: [Entity a]) <- runDB $ selectList [] [Asc persistIdField, OffsetBy $ ppOffset pp, LimitTo $ ppLimit pp]
-    recs <- mapM (\r -> fmap (\rec -> (rec, entityKey r, dShowFunc dic r)) $ entityToTexts r) res
+    recs <- mapM (\r -> fmap (\rec -> (rec, entityKey r, dShowFunc dic r)) $ entityToTexts ([]::[m]) r) res
 {-
     let recs = map  (   entityKey
                     &&& dShowFunc dic
@@ -54,7 +54,7 @@ postListR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) = do
                     $if not (ppIsSelect pp)
                         <th align=center bgcolor=blue width=20px>
                             <a href=#{editR root sd defKey}>+
-                    $forall df <- dPrimary dic : dFields dic
+                    $forall df <- dPrimary dic : ignoreLayout (dFields dic)
                         <th  bgcolor=blue>_{maybe (fsLabel (dfSettings df)) SomeMessage (dfShort df)}
                     <th align=center bgcolor=blue width=20px>-
                 $forall (rec,key,txt) <- recs

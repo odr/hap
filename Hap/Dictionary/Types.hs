@@ -1,7 +1,7 @@
 {-# LANGUAGE ExistentialQuantification, ScopedTypeVariables, ConstraintKinds
 			, FlexibleInstances, LambdaCase, TemplateHaskell, QuasiQuotes, MultiParamTypeClasses
 			, FlexibleContexts, OverloadedStrings, RecordWildCards
-            , FunctionalDependencies #-}
+            , FunctionalDependencies, DeriveFunctor  #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Hap.Dictionary.Types where
 
@@ -29,19 +29,36 @@ class   ( Yesod m, RenderMessage m FormMessage, RenderMessage m HapMessage
         )
         => YesodHap m where
 
-class HasSubDic m p e | e -> m p where
-    getSubDic :: Dictionary m e -> SubDic m p e
+-- class HasSubDic m p e | e -> m p where
+--     getSubDic :: Dictionary m e -> SubDic m p e
 
 class HasMapDict m where
 	getMapDict :: Map String (SomeDictionary m)
     -- getDict :: String -> SomeDictionary m
 
+data Layout t 
+    = Horizontal [Layout t]
+    | Vertical [Layout t]
+    | Layout t
+    deriving (Show, Functor)
+
+transposeLayout :: Layout t -> Layout t 
+transposeLayout (Horizontal xs) = Vertical $ map transposeLayout xs
+transposeLayout (Vertical xs) = Horizontal $ map transposeLayout xs
+transposeLayout x@(Layout _) = x
+
+ignoreLayout :: Layout t -> [t]
+ignoreLayout (Horizontal xs)    = concatMap ignoreLayout xs
+ignoreLayout (Vertical xs)      = concatMap ignoreLayout xs
+ignoreLayout (Layout x)         = [x]
+
+
 data Dictionary m e = Dictionary
     { dDisplayName  :: SomeMessage m
     , dPrimary      :: DicField m e
-    , dFields       :: [DicField m e]
+    , dFields       :: Layout (DicField m e)
     , dShowFunc     :: Entity e -> Text
-    , dSubDics      :: [SomeSubDic m e]
+    -- , dSubDics      :: [SomeSubDic m e]
     }
 
 data SomeDictionary m
@@ -59,17 +76,6 @@ instance Ord (SomeDictionary m) where
 instance HasMapDict m => Read (SomeDictionary m) where
     readsPrec _ = \s -> [(maybe (error "Can't parse Dictionary") id $ M.lookup (map toLower s) getMapDict, "")]
 
-data SubDicType = SubDicLoadAll | SubDicLoadOnRequest deriving (Show, Read, Eq, Ord)
-
-data SubDic m p e = SubDic
-    { sdDic     :: Dictionary m e 
-    , sdType    :: SubDicType
-    , sdRef     :: EntityField e (Key p)
-    }
-
-data SomeSubDic m p 
-    = forall e. HasSubDic m p e => SomeSubDic { unSomeSubDic :: [e] }
-
 ----- Fields ----    
 
 data FieldKind = Hidden | ReadOnly | Editable deriving (Eq, Show, Read)
@@ -81,18 +87,30 @@ instance Monoid FieldKind where
         | ReadOnly `elem` [a,b] = ReadOnly
         | otherwise             = Editable
 
+data Ref m e = forall r. HasDictionary m r => Ref [m] (EntityField r (Key e))
 
-data DicField m e   = forall t. (FieldForm m e t, FieldToText m t) 
-                    => DicField 
-    { dfEntityField :: EntityField e t
+data DicFieldIndex m e 
+    = forall t. (FieldForm m e t, FieldToText m t) => NormalField [m] (EntityField e t)
+    | forall r. HasDictionary m r => RefField [m] (EntityField r (Key e))
+
+
+data DicField m e   = {- forall t. (FieldForm m e t, FieldToText m t) 
+                    => -} DicField 
+    { dfIndex       :: DicFieldIndex m e -- EntityField e t
     , dfSettings    :: FieldSettings m
     , dfShort       :: Maybe (SomeMessage m)
     , dfKind        :: FieldKind
     }
 
+isNormal :: DicField m e -> Bool
+isNormal (DicField {..}) = case dfIndex of 
+    NormalField{..} -> True
+    _  -> False
 
-getDBName :: (PersistEntity e) => DicField m e -> Text
-getDBName (DicField {..}) = unDBName $ fieldDB $ persistFieldDef dfEntityField
+isRef :: DicField m e -> Bool
+isRef (DicField {..}) = case dfIndex of 
+    RefField{..} -> True
+    _  -> False
 
 class FieldToText m a where
     fieldToText :: a -> HandlerT m IO (Maybe Text)
@@ -107,12 +125,25 @@ instance (HasDictionary m a, YesodPersist m, PersistStore (YesodPersistBackend m
 instance FieldToText m a => FieldToText m (Maybe a) where
     fieldToText = maybe (return Nothing) fieldToText
 
-entityToTexts :: HasDictionary m a => Entity a -> HandlerT m IO [Maybe Text]
-entityToTexts ent = fmap ((Just (showPersistField $ entityKey ent):) . reverse)
-                    $ State.execStateT (mapM_ (\df -> fToT df ent) $ dFields getDictionary) []
+entityToTexts :: (HasDictionary m a, YesodHap m) => [m] -> Entity a -> HandlerT m IO [Maybe Text]
+entityToTexts (_ :: [m]) (ent :: Entity a) = fmap ((Just (showPersistField $ entityKey ent):) . reverse)
+                    $ State.execStateT  (mapM_ (\df -> fToT df ent) fields
+                                        ) [] 
   where
+    fields = case getDictionary :: Dictionary m a of
+        (Dictionary {..}) -> ignoreLayout dFields
     fToT :: (PersistEntity a) => DicField m a -> Entity a -> State.StateT [Maybe Text] (HandlerT m IO) (Entity a)
-    fToT (DicField{..}) = fieldLens dfEntityField (\fld -> lift (fieldToText fld) >>= State.modify . (:) >> return fld)
+    fToT (DicField{..}) ent = case dfIndex of
+        NormalField _ ef -> fieldLens ef 
+                                (\fld -> lift (fieldToText fld) >>= State.modify . (:) >> return fld) 
+                                ent
+        RefField _ (ef :: EntityField r (Key e)) -> do
+            let showFunc = case getDictionary :: Dictionary m r of 
+                    (Dictionary {..}) -> dShowFunc
+            t <- lift   $ fmap (T.intercalate "; " . map showFunc) 
+                        $ runDB $ selectList [ef ==. entityKey ent] []
+            State.modify (Just t:)
+            return ent
 
 class (RenderMessage m FormMessage) => FieldForm m e a where
     fieldAForm :: [e] -> FieldSettings m -> Maybe a -> AForm (HandlerT m IO) a
@@ -209,7 +240,14 @@ listR root sd = root <> "/list/" <> T.pack (show sd)
 
 dicFieldAForm :: PersistEntity e => DicField m e -> Entity e -> AForm (HandlerT m IO) (Entity e)
 dicFieldAForm (DicField {..}) (ent :: Entity e) 
-    = fieldLens dfEntityField (fieldAForm ([] :: [e]) dfSettings . Just) ent 
+    = case dfIndex of
+        NormalField _ ef    -> fieldLens ef (fieldAForm ([] :: [e]) dfSettings . Just) ent 
+        RefField    _ (ef :: EntityField r (Key e))
+                            -> undefined
+            {-
+            rents <- lift $ runDB $ selectList [ef ==. entityKey ent] []
+            return ent
+            -}
 
 dicFieldForm :: PersistEntity e
     => DicField m e -> Entity e 
@@ -234,10 +272,39 @@ dictionaryForm :: HasDictionary m e
     -> MForm (HandlerT m IO) ((FormResult (Entity e), Entity e), [FieldView m] -> [FieldView m])
 dictionaryForm me
     = fmap ((fmap getLast' *** getLast') *** appEndo) 
-    $ foldM app ((FormSuccess e0, e0), mempty) $ dFields getDictionary
+    $ foldM app ((FormSuccess e0, e0), mempty) $ ignoreLayout $ dFields getDictionary
   where
     e0 = Last me
     app acc@((_,le),_) df = fmap (acc <>) $ dicFieldForm' df le
 
 dictionaryAForm :: HasDictionary m e => Maybe (Entity e) -> AForm (HandlerT m IO) (Entity e)
 dictionaryAForm = formToAForm . fmap (fst *** ($ [])) . dictionaryForm
+
+-------------------------------------------------------- Form
+data EntityPlus m e = EntityPlus
+    { epEntity  :: Entity e
+    , epRefs    :: [EntityRef m e]
+    }
+
+data EntityRef m e = forall r. HasDictionary m r => EntityRef (EntityField r (Key e)) [EntityPlus m r]
+
+getEntityPlus :: (HasDictionary m e, YesodHap m) 
+        => Dictionary m e -> Key e -> HandlerT m IO (EntityPlus m e)
+getEntityPlus dic key = 
+    runDB (get key) >>= maybe notFound (\ent -> EntityPlus (Entity key ent) <$> getRefsEP dic key)
+
+getRefsEP :: (HasDictionary m e, YesodHap m) 
+        => Dictionary m e -> Key e -> HandlerT m IO [EntityRef m e]
+getRefsEP (Dictionary{..} :: Dictionary m e) key = reverse <$> foldM getEP [] (map dfIndex $ ignoreLayout dFields)
+  where
+    getEP xs (NormalField{..}) = return xs
+    getEP xs (RefField _ (ef :: EntityField r (Key e))) 
+        = (\eps -> EntityRef ef eps : xs)
+        <$> getFilteredEPs (getDictionary :: Dictionary m r) [ef ==. key]
+
+getFilteredEPs :: (HasDictionary m e, YesodHap m) 
+        => Dictionary m e -> [Filter e] -> HandlerT m IO [EntityPlus m e]
+getFilteredEPs dic fs 
+    = runDB (selectList fs []) >>= mapM (\ent -> EntityPlus ent <$> getRefsEP dic (entityKey ent)) 
+{-
+-}

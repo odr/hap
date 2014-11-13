@@ -29,6 +29,9 @@ showPersistValue (PersistDbSpecific _)        = "[binary db-specific]"
 showPersistField :: (PersistField a) => a -> Text
 showPersistField = showPersistValue . toPersistValue
 
+getByEF :: PersistEntity e => EntityField e t -> Entity e -> t
+getByEF ef = fst . fieldLens ef (id &&& id)
+
 entityFieldToPersist :: PersistEntity e => EntityField e t -> Entity e -> SomePersistField
 entityFieldToPersist ef (Entity key (ent :: e))
     | persistFieldDef ef == persistFieldDef (persistIdField :: EntityField e (Key e))

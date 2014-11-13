@@ -17,7 +17,7 @@ getEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
   where
     produce dicName ent = do
         $logDebug $ "entity: " <> T.pack (show ent)
-        (widget, enctype) <- generateFormPost $ renderTable $ dictionaryAForm $ Just ent
+        (widget, enctype) <- generateFormPost $ renderDivs $ dictionaryAForm $ Just ent
         let title = dicName <> ": " <> toPathPiece v
         root <- getRoot
         let edR = editR root sd v
@@ -39,9 +39,8 @@ getEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
                         <td .cell-editor >
                             <div ##{editorId} onclick=hidePager(this)>
                                 <form ##{formId} method=post action=#{edR} enctype=#{enctype}>
-                                    <table>
-                                        ^{widget}
-                                    <span>
+                                    ^{widget}
+                                    <div display=inline>
                                         <button type=submit >Submit
                                         $#<button type=submit onclick=sub('#{newR}')>Add
                                         <button type=button onclick=window.location='#{lstR}'>Close
@@ -124,7 +123,7 @@ postEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
                 return Null
 
 deleteEditR :: YesodHap m => SomeDictionary m -> PersistValue -> HandlerT m IO Value
-deleteEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v = do
+deleteEditR (SomeDictionary (_ :: [a]) :: SomeDictionary m) v = do
     mr <- getMessageRender
     let dicName = mr $ dDisplayName (getDictionary :: Dictionary m a)
     -- root <- getRoot
