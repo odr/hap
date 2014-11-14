@@ -19,7 +19,7 @@ import Hap.Dictionary.Hap
 import Hap.Dictionary.Utils(getRoot, showPersistField)
 
 class   (Default e, PersistEntity e, PersistEntityBackend e ~ YesodPersistBackend m
-        , Typeable e, PersistField e, PathPiece (Key e), Show e
+        , Typeable e, PersistField e, PathPiece (Key e), Show e, Eq e
         ) 
         => HasDictionary m e | e -> m where
     getDictionary :: Dictionary m e
@@ -280,31 +280,3 @@ dictionaryForm me
 dictionaryAForm :: HasDictionary m e => Maybe (Entity e) -> AForm (HandlerT m IO) (Entity e)
 dictionaryAForm = formToAForm . fmap (fst *** ($ [])) . dictionaryForm
 
--------------------------------------------------------- Form
-data EntityPlus m e = EntityPlus
-    { epEntity  :: Entity e
-    , epRefs    :: [EntityRef m e]
-    }
-
-data EntityRef m e = forall r. HasDictionary m r => EntityRef (EntityField r (Key e)) [EntityPlus m r]
-
-getEntityPlus :: (HasDictionary m e, YesodHap m) 
-        => Dictionary m e -> Key e -> HandlerT m IO (EntityPlus m e)
-getEntityPlus dic key = 
-    runDB (get key) >>= maybe notFound (\ent -> EntityPlus (Entity key ent) <$> getRefsEP dic key)
-
-getRefsEP :: (HasDictionary m e, YesodHap m) 
-        => Dictionary m e -> Key e -> HandlerT m IO [EntityRef m e]
-getRefsEP (Dictionary{..} :: Dictionary m e) key = reverse <$> foldM getEP [] (map dfIndex $ ignoreLayout dFields)
-  where
-    getEP xs (NormalField{..}) = return xs
-    getEP xs (RefField _ (ef :: EntityField r (Key e))) 
-        = (\eps -> EntityRef ef eps : xs)
-        <$> getFilteredEPs (getDictionary :: Dictionary m r) [ef ==. key]
-
-getFilteredEPs :: (HasDictionary m e, YesodHap m) 
-        => Dictionary m e -> [Filter e] -> HandlerT m IO [EntityPlus m e]
-getFilteredEPs dic fs 
-    = runDB (selectList fs []) >>= mapM (\ent -> EntityPlus ent <$> getRefsEP dic (entityKey ent)) 
-{-
--}

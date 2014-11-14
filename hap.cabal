@@ -22,6 +22,7 @@ library
                     Hap.Dictionary.EDSL
                     Hap.Dictionary.Pager
                     Hap.Dictionary.Utils
+                    Hap.Dictionary.EntityPlus
                     Settings
                     Settings.StaticFiles
                     Settings.Development

@@ -30,7 +30,10 @@ showPersistField :: (PersistField a) => a -> Text
 showPersistField = showPersistValue . toPersistValue
 
 getByEF :: PersistEntity e => EntityField e t -> Entity e -> t
-getByEF ef = fst . fieldLens ef (id &&& id)
+getByEF ef = getConst . fieldLens ef Const
+
+setByEF :: PersistEntity e => EntityField e t -> t -> Entity e -> Entity e
+setByEF ef val = runIdentity . fieldLens ef (Identity . const val)
 
 entityFieldToPersist :: PersistEntity e => EntityField e t -> Entity e -> SomePersistField
 entityFieldToPersist ef (Entity key (ent :: e))
