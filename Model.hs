@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric, TemplateHaskell, MultiParamTypeClasses, TypeFamilies
+    , ExistentialQuantification, DeriveDataTypeable, GeneralizedNewtypeDeriving #-}
 module Model where
 
 import Yesod

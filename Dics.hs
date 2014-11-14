@@ -11,8 +11,8 @@ import Foundation
 
 instance HasMapDict App where
     getMapDict =  M.fromList $ map (map toLower . show &&& id)
-        [ someDic ([] :: [User])
-        , someDic ([] :: [Email])
+        [ someDic (def :: [User])
+        , someDic (def :: [Email])
         ]
 instance Default User
 instance HasDictionary App User where
@@ -20,6 +20,7 @@ instance HasDictionary App User where
         = mkDic MsgUsers 
             ( fld UserIdent     )
             [ fld UserIdent     # label MsgIdent
+            , ref def EmailUser
             , fld UserPassword  # label MsgPassword
             ]
             # recShowField UserIdent

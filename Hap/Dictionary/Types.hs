@@ -16,7 +16,7 @@ import qualified Data.Map as M
 import Data.Char(toLower)
 
 import Hap.Dictionary.Hap
-import Hap.Dictionary.Utils(getRoot, showPersistField)
+import Hap.Dictionary.Utils(getRoot, showPersistField, getByEF, setByEF)
 
 class   (Default e, PersistEntity e, PersistEntityBackend e ~ YesodPersistBackend m
         , Typeable e, PersistField e, PathPiece (Key e), Show e, Eq e
@@ -89,10 +89,21 @@ instance Monoid FieldKind where
 
 data Ref m e = forall r. HasDictionary m r => Ref [m] (EntityField r (Key e))
 
+class ForeignKey a r e | a -> r e where
+    filterFK    :: a -> Key e -> Filter r
+    setFK       :: a -> Key e -> Entity r -> Entity r
+instance (PersistEntity r, PersistField (Key e)) 
+        => ForeignKey (EntityField r (Key e)) r e where
+    filterFK ef key = ef ==. key
+    setFK = setByEF
+instance (PersistEntity r, PersistField (Key e)) 
+        => ForeignKey (EntityField r (Maybe (Key e))) r e where
+    filterFK ef key = ef ==. Just key
+    setFK ef key = setByEF ef (Just key)
+
 data DicFieldIndex m e 
     = forall t. (FieldForm m e t, FieldToText m t) => NormalField [m] (EntityField e t)
-    | forall r. HasDictionary m r => RefField [m] (EntityField r (Key e))
-
+    | forall r a. (HasDictionary m r, ForeignKey a r e) => RefField [(m,r)] a Int
 
 data DicField m e   = {- forall t. (FieldForm m e t, FieldToText m t) 
                     => -} DicField 
@@ -137,11 +148,11 @@ entityToTexts (_ :: [m]) (ent :: Entity a) = fmap ((Just (showPersistField $ ent
         NormalField _ ef -> fieldLens ef 
                                 (\fld -> lift (fieldToText fld) >>= State.modify . (:) >> return fld) 
                                 ent
-        RefField _ (ef :: EntityField r (Key e)) -> do
+        RefField (_::[(m,r)]) ef _ -> do
             let showFunc = case getDictionary :: Dictionary m r of 
                     (Dictionary {..}) -> dShowFunc
             t <- lift   $ fmap (T.intercalate "; " . map showFunc) 
-                        $ runDB $ selectList [ef ==. entityKey ent] []
+                        $ runDB $ selectList [filterFK ef $ entityKey ent] []
             State.modify (Just t:)
             return ent
 
@@ -242,7 +253,7 @@ dicFieldAForm :: PersistEntity e => DicField m e -> Entity e -> AForm (HandlerT 
 dicFieldAForm (DicField {..}) (ent :: Entity e) 
     = case dfIndex of
         NormalField _ ef    -> fieldLens ef (fieldAForm ([] :: [e]) dfSettings . Just) ent 
-        RefField    _ (ef :: EntityField r (Key e))
+        RefField    (_ :: [(m,r)]) ef _
                             -> undefined
             {-
             rents <- lift $ runDB $ selectList [ef ==. entityKey ent] []

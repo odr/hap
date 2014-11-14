@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards, ScopedTypeVariables, NamedFieldPuns #-}
 module Hap.Dictionary.EDSL
 	( module Hap.Dictionary.EDSL
 	, HasDictionary(..)
@@ -8,6 +8,7 @@ module Hap.Dictionary.EDSL
 	) where
 
 import Hap.Dictionary.Import as Hap.Dictionary.EDSL
+import qualified Control.Monad.Trans.State as S
 import Data.Typeable(Typeable)
 import Hap.Dictionary.Utils(showEF)
 import Hap.Dictionary.Types
@@ -20,7 +21,14 @@ mkDic   :: (RenderMessage m mess, PersistEntity a, Typeable a, PersistEntityBack
 mkDic m pk flds = Dictionary
     { dDisplayName  = SomeMessage m
     , dPrimary      = pk
-    , dFields       = Vertical $ map Layout flds
+    , dFields       = Vertical $ map Layout $ S.evalState (mapM (\df@(DicField{dfIndex}) -> 
+                            case dfIndex of
+                                RefField a b _ -> do
+                                    n <- S.get
+                                    S.put $ n + 1
+                                    return df { dfIndex = RefField a b n }
+                                _ -> return df
+                        ) flds) (0 :: Int)
     , dShowFunc     = showEF persistIdField
     -- , dSubDics      = []
     }
@@ -35,6 +43,17 @@ fld ef = DicField
     }
   where
     hn = SomeMessage $ unHaskellName $ fieldHaskell $ persistFieldDef ef
+
+ref:: (HasDictionary m r, ForeignKey fk r a) => [(m,r)] -> fk -> DicField m a
+ref (site::[(m,r)]) ef = DicField
+    { dfIndex       = RefField site ef 0
+    , dfSettings    = "" { fsLabel = dispName }
+    , dfShort       = Nothing 
+    , dfKind        = mempty
+    } 
+  where
+    dispName = case getDictionary :: Dictionary m r of
+        Dictionary {..} -> dDisplayName
 
 label :: RenderMessage m mess => mess -> DicField m a -> DicField m a
 label mess DicField {..} = DicField
@@ -55,10 +74,12 @@ readonly f = f { dfKind = ReadOnly <> dfKind f }
 recShowField :: PersistEntity e => EntityField e t -> Dictionary m e -> Dictionary m e
 recShowField ef dic = dic { dShowFunc = showEF ef }
 
+{-
 showField :: PersistEntity e => DicField m e -> Entity e -> Text
 showField (DicField {..}) = case dfIndex of 
     NormalField _ ef -> showEF ef
-    RefField _ (ef :: EntityField r (Key e)) -> undefined
+    RefField _ (ef :: EntityField r (Key e)) _ -> undefined
+-}
 
 someDic :: HasDictionary master a => [a] -> SomeDictionary master
 someDic xs = SomeDictionary xs

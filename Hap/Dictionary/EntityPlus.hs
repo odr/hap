@@ -14,7 +14,8 @@ data EntityPlus m e = EntityPlus
     , epRefs    :: [EntityRef m e]
     }
 
-data EntityRef m e = forall r. HasDictionary m r => EntityRef (EntityField r (Key e)) [EntityPlus m r]
+data EntityRef m e = forall r a. (HasDictionary m r, ForeignKey a r e) 
+        => EntityRef a [EntityPlus m r]
 
 getEntityPlus :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
         => Dictionary m e -> Key e -> YesodDB m (EntityPlus m e)
@@ -26,9 +27,9 @@ getRefsEP :: (HasDictionary m e, PersistQuery (YesodPersistBackend m))
 getRefsEP (Dictionary{..} :: Dictionary m e) key = reverse <$> foldM getEP [] (map dfIndex $ ignoreLayout dFields)
   where
     getEP xs (NormalField{..}) = return xs
-    getEP xs (RefField _ (ef :: EntityField r (Key e))) 
+    getEP xs (RefField (_::[(m,r)]) ef _)
         = (\eps -> EntityRef ef eps : xs)
-        <$> getFilteredEPs (getDictionary :: Dictionary m r) [ef ==. key]
+        <$> getFilteredEPs (getDictionary :: Dictionary m r) [filterFK ef key]
 
 getFilteredEPs :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
         => Dictionary m e -> [Filter e] -> YesodDB m [EntityPlus m e]
@@ -59,9 +60,9 @@ insertRefs key = mapM (insertRef key)
 
 insertRef :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
         => Key e -> EntityRef m e -> YesodDB m (EntityRef m e)
-insertRef key (EntityRef (ef :: EntityField r (Key e)) (eps :: [EntityPlus m r])) 
+insertRef key (EntityRef ef (eps :: [EntityPlus m r])) 
     = EntityRef ef <$> 
-        mapM (\ep@(EntityPlus{..}) -> putEntityPlus Nothing ep { epEntity = setByEF ef key $ epEntity }) eps
+        mapM (\ep@(EntityPlus{..}) -> putEntityPlus Nothing ep { epEntity = setFK ef key $ epEntity }) eps
 
 putRefs :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
         => Key e -> [EntityRef m e] -> YesodDB m [EntityRef m e]
@@ -69,13 +70,13 @@ putRefs key = mapM (putRef key)
 
 putRef :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
         => Key e -> EntityRef m e -> YesodDB m (EntityRef m e)
-putRef key (EntityRef (ef :: EntityField r (Key e)) (eps :: [EntityPlus m r])) = do
-    ents' <- selectList [ef ==. key] []
+putRef key (EntityRef ef (eps :: [EntityPlus m r])) = do
+    ents' <- selectList [filterFK ef key] []
     delEntities $ map entityKey ents' \\ map (entityKey . epEntity) eps
     EntityRef ef <$> 
         mapM    (\ep -> putEntityPlus 
                             (entityVal <$> find ((== entityKey (epEntity ep)) . entityKey) ents') 
-                            ep { epEntity = setByEF ef key $ epEntity ep}
+                            ep { epEntity = setFK ef key $ epEntity ep}
                 ) eps
 
 delEntities :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) => [Key e] -> YesodDB m ()
