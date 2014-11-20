@@ -19,7 +19,7 @@ getEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
   where
     produce ent = do
         $logDebug $ "entity: " <> T.pack (show ent)
-        (widget, enctype) <- generateFormPost $ renderDivs $ entityPlusAForm ent
+        (widget, enctype) <- generateFormPost $ entityPlusMForm ent
 {-
         showForm sd v widget enctype
 
@@ -101,7 +101,7 @@ postEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
   where
     produce ep = do
         $logDebug $ debugMess "postEditR: ep = {}" $ Only $ Shown ep
-        ((result, widget), enctype) <- runFormPost $ renderTable $ entityPlusAForm ep
+        ((result, widget), enctype) <- runFormPost $ entityPlusMForm ep
         $logDebug $ debugMess "postEditR: result = {}" $ Only $ Shown result
         root <- getRoot
         case result of
