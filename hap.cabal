@@ -23,6 +23,7 @@ library
                     Hap.Dictionary.Pager
                     Hap.Dictionary.Utils
                     Hap.Dictionary.EntityPlus
+                    Hap.Dictionary.Form
                     Settings
                     Settings.StaticFiles
                     Settings.Development
@@ -90,6 +91,7 @@ library
                  , data-default-generics        >= 0.3
                  , text-format                  >= 0.3
                  , transformers                 >= 0.3
+                 , lens                         >= 4.4
 
     -- see https://github.com/yesodweb/yesod/issues/814
     if !os(windows)

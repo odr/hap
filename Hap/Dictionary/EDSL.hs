@@ -5,10 +5,12 @@ module Hap.Dictionary.EDSL
     , HasMapDict(..)
 	, SomeDictionary
     , YesodHap
+    , Layout (..)
 	) where
 
 import Hap.Dictionary.Import as Hap.Dictionary.EDSL
 import qualified Control.Monad.Trans.State as S
+import qualified Data.Traversable as TR
 import Data.Typeable(Typeable)
 import Hap.Dictionary.Utils(showEF)
 import Hap.Dictionary.Types
@@ -17,11 +19,11 @@ import Yesod
 
 ------------------- DicEDSL -----------------------------
 mkDic   :: (RenderMessage m mess, PersistEntity a, Typeable a, PersistEntityBackend a ~ SqlBackend)
-        => mess -> DicField m a -> [DicField m a] -> Dictionary m a
-mkDic m pk flds = Dictionary
+        => mess -> {-DicField m a -> -}Layout (DicField m a) -> Dictionary m a
+mkDic m flds = Dictionary
     { dDisplayName  = SomeMessage m
-    , dPrimary      = pk
-    , dFields       = Vertical $ map Layout $ S.evalState (mapM (\df@(DicField{dfIndex}) -> 
+    -- , dPrimary      = pk
+    , dFields       = S.evalState (TR.mapM (\df@(DicField{dfIndex}) -> 
                             case dfIndex of
                                 RefField a b _ -> do
                                     n <- S.get
@@ -32,6 +34,7 @@ mkDic m pk flds = Dictionary
     , dShowFunc     = showEF persistIdField
     -- , dSubDics      = []
     }
+
 
 fld :: (PersistEntity a, FieldForm m a t, FieldToText m t) => EntityField a t -> DicField m a
 fld ef = DicField

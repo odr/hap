@@ -136,7 +136,7 @@ pager mbSelId = do
                     var cp=parseInt(ePn.value);
                     ePn.value = cp = cp < 0 ? pcnt : Math.min(pcnt, Math.max(1, cp));
 
-                    content$.load(addr, {lim: ps, off: (cp-1)*ps, isSel: isSel, cnt: cnt, idRec: idRec, isFst: isFst});
+                    content$.load(addr, {lim: ps, off: cp <= 0 ? 0 : (cp-1)*ps, isSel: isSel, cnt: cnt, idRec: idRec, isFst: isFst});
 
                     isFst = false;
                     bFst.disabled = bPrev.disabled = cp == 1;

@@ -4,7 +4,7 @@ module Hap.Dictionary.Import
 
 import Prelude                  as Hap.Dictionary.Import 
                                     hiding (head, init, last, readFile, tail, writeFile)
-import Control.Applicative      as Hap.Dictionary.Import(pure, (<$>), (<*>), Const(..))
+import Control.Applicative      as Hap.Dictionary.Import(Applicative(..), (<$>), Const(..))
 import Control.Monad            as Hap.Dictionary.Import(foldM, (>=>))
 import Control.Arrow            as Hap.Dictionary.Import((&&&), (***), second, first)
 import Data.Functor.Identity    as Hap.Dictionary.Import(Identity(..))

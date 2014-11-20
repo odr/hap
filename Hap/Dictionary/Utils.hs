@@ -9,6 +9,7 @@ import Data.Ord(comparing)
 import qualified Data.Text as T
 import Data.Time(formatTime)
 import System.Locale(defaultTimeLocale)
+-- import Control.Lens
 
 showPersistValue :: PersistValue -> Text
 showPersistValue (PersistText v)              = v

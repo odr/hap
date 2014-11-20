@@ -9,15 +9,24 @@ import qualified Data.Text as T
 import Hap.Dictionary.Types
 import Hap.Dictionary.Hap
 import Hap.Dictionary.Pager
+import Hap.Dictionary.Form 
+import Hap.Dictionary.EntityPlus
 import Hap.Dictionary.Utils(getRoot, setMessageWidget)
 
 getEditR :: (YesodHap m) => SomeDictionary m -> PersistValue -> HandlerT m IO Html
 getEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v 
-    = fmap (fromMaybe mempty) $ withEntity (getDictionary :: Dictionary m a) v produce
+    = fmap (fromMaybe mempty) $ withEntityPlus (getDictionary :: Dictionary m a) v produce
   where
-    produce dicName ent = do
+    produce ent = do
         $logDebug $ "entity: " <> T.pack (show ent)
-        (widget, enctype) <- generateFormPost $ renderDivs $ dictionaryAForm $ Just ent
+        (widget, enctype) <- generateFormPost $ renderDivs $ entityPlusAForm ent
+{-
+        showForm sd v widget enctype
+
+showForm :: (YesodHap m) => SomeDictionary m -> PersistValue -> WidgetT m IO () -> Enctype -> HandlerT m IO Html
+showForm sd@(SomeDictionary (_::[a]) :: SomeDictionary m) v widget enctype = do
+-}
+        dicName <- (dDisplayName (getDictionary :: Dictionary m a) #) <$> getMessageRender
         let title = dicName <> ": " <> toPathPiece v
         root <- getRoot
         let edR = editR root sd v
@@ -26,9 +35,10 @@ getEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
         defaultLayout $ do
             setTitle $ toHtml title
             toWidget [cassius|
+                    .container
+                        width: 2000px
                     .cell-editor
                         padding-right: 10px
-                        width: 50%
                     .cell-selector
                         padding-left: 10px
                 |]
@@ -36,14 +46,13 @@ getEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
                 <h1>#{title}
                 <table>
                     <tr>
-                        <td .cell-editor >
-                            <div ##{editorId} onclick=hidePager(this)>
-                                <form ##{formId} method=post action=#{edR} enctype=#{enctype}>
+                        <td .cell-editor>
+                            <div ##{editorId} onclick=hidePager(this) display=inline>
+                                <form ##{formId} method=post enctype=#{enctype}>
                                     ^{widget}
                                     <div display=inline>
                                         <button type=submit >Submit
-                                        $#<button type=submit onclick=sub('#{newR}')>Add
-                                        <button type=button onclick=window.location='#{lstR}'>Close
+                                        <button type=button onclick=window.location='#{lstR}'>To List
                                         <button type=button onclick=editor_del()>Delete
                         <td ##{selId} .cell-selector hidden>
                             ^{pager $ Just selId}
@@ -56,24 +65,26 @@ getEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
                         , success: function () {window.location=#{toJSON lstR}}
                     });                
                 }
-
             |]
 
-withEntity  :: (HasDictionary m e, YesodHap m, ToTypedContent a) 
-    => Dictionary m e -> PersistValue -> (Text -> Entity e -> HandlerT m IO a) 
+
+withEntityPlus  :: (HasDictionary m e, YesodHap m, ToTypedContent a) 
+    => Dictionary m e -> PersistValue -> (EntityPlus m e -> HandlerT m IO a) 
     -> HandlerT m IO (Maybe a)
-withEntity (dic :: Dictionary m a) v produce = getMessageRender >>= withMR
+withEntityPlus (dic :: Dictionary m a) v produce = getMessageRender >>= withMR
   where
     ek = fromPersistValue v :: Either Text (Key a)
     withMR mr
         = either    ( \t -> showErr (MsgInvalidKey dicName (toPathPiece v) t) >> return Nothing )
-                    ( \k -> do
-                        me <- if k == def
-                            then return $ Just def
-                            else runDB $ get k
+                    ( \k -> fmap Just . produce
+                            =<< if k == def 
+                                    then return def
+                                    else runDB $ getEntityPlus dic k
+                        {-
                         maybe   ( showErr (MsgNotFound dicName $ toPathPiece v) >> return Nothing )
                                 ( fmap Just . produce dicName . Entity k )
                                 me
+                        -}
                     )
                     ek
       where
@@ -84,43 +95,40 @@ showErr mess = setMessageWidget [whamlet|
         <h3>_{mess}
         <hr>|]
 
-postEditR :: YesodHap m => SomeDictionary m -> PersistValue -> HandlerT m IO Value
+postEditR :: YesodHap m => SomeDictionary m -> PersistValue -> HandlerT m IO Html
 postEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
-    = fmap (fromMaybe Null) $ withEntity (getDictionary :: Dictionary m a) v produce
+    = fmap (fromMaybe mempty) $ withEntityPlus (getDictionary :: Dictionary m a) v produce
   where
-    produce _ ent = do
-        $logDebug $ debugMess "postEditR: ent = {}" $ Only $ Shown ent
-        ((result, _), _) <- runFormPost $ renderTable $ dictionaryAForm $ Just ent
+    produce ep = do
+        $logDebug $ debugMess "postEditR: ep = {}" $ Only $ Shown ep
+        ((result, widget), enctype) <- runFormPost $ renderTable $ entityPlusAForm ep
         $logDebug $ debugMess "postEditR: result = {}" $ Only $ Shown result
         root <- getRoot
         case result of
-            FormSuccess (Entity k e) -> do
-
-                k' <- if k == def
-                    then runDB $ insert e
-                    else runDB (replace k e) >> return k
-
+            FormSuccess rep -> do
+                ep' <- runDB $ putEntityPlus Nothing rep 
                 setMessageWidget [whamlet|
                         <h2 .info>_{MsgSaved}
                         <hr>
                     |]
-                _ <- redirect $ editR root sd $ toPersistValue k'
-                return $ toJSON k'
+                -- showForm sd (toPersistValue $ entityKey $ _epEntity ep') widget enctype
+                redirect $ editR root sd $ toPersistValue $ entityKey $ _epEntity ep'
+                -- return $ toJSON $ entityKey $ _epEntity ep'
             FormFailure xs -> do
                 setMessageWidget [whamlet|
                         <h2 .error>_{MsgError $ T.unlines xs}
                         <hr>
                     |]
-                _ <- redirect $ editR root sd v
-                return Null
+                redirect $ editR root sd v
+--                return Null
 --                 editForm (dicName <> ": " <> toPathPiece v) sd v widget enctype
             FormMissing -> do
                 setMessageWidget [whamlet|
                         <h2 .error>_{MsgError "Missing form"}
                         <hr>
                     |]
-                _ <- redirect $ editR root sd v
-                return Null
+                redirect $ editR root sd v
+                -- return Null
 
 deleteEditR :: YesodHap m => SomeDictionary m -> PersistValue -> HandlerT m IO Value
 deleteEditR (SomeDictionary (_ :: [a]) :: SomeDictionary m) v = do

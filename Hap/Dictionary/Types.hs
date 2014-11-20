@@ -1,12 +1,12 @@
 {-# LANGUAGE ExistentialQuantification, ScopedTypeVariables, ConstraintKinds
 			, FlexibleInstances, LambdaCase, TemplateHaskell, QuasiQuotes, MultiParamTypeClasses
 			, FlexibleContexts, OverloadedStrings, RecordWildCards
-            , FunctionalDependencies, DeriveFunctor  #-}
+            , FunctionalDependencies, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Hap.Dictionary.Types where
 
 import Hap.Dictionary.Import
-import Control.Monad(liftM2)
+import Control.Monad(liftM2, join)
 import qualified Control.Monad.Trans.State as State
 import Data.Monoid(Endo(..))
 import qualified Data.Text as T
@@ -14,6 +14,8 @@ import Data.Typeable
 import           Data.Map (Map)
 import qualified Data.Map as M
 import Data.Char(toLower)
+import qualified Data.Foldable as FD
+import qualified Data.Traversable as TR
 
 import Hap.Dictionary.Hap
 import Hap.Dictionary.Utils(getRoot, showPersistField, getByEF, setByEF)
@@ -40,7 +42,18 @@ data Layout t
     = Horizontal [Layout t]
     | Vertical [Layout t]
     | Layout t
-    deriving (Show, Functor)
+    deriving (Show, Functor, FD.Foldable, TR.Traversable)
+
+instance Applicative Layout where
+    pure = Layout
+    (Layout     f)  <*> x = fmap f x
+    (Horizontal fs) <*> x = Horizontal $ map (<*> x) fs
+    (Vertical   ts) <*> x = Vertical   $ map (<*> x) ts
+
+instance Monad Layout where
+    return = Layout
+    (Horizontal ts) >>= f = Horizontal $ map (join . fmap f) ts
+    (Vertical ts)   >>= f = Vertical   $ map (join . fmap f) ts
 
 transposeLayout :: Layout t -> Layout t 
 transposeLayout (Horizontal xs) = Vertical $ map transposeLayout xs
@@ -55,11 +68,13 @@ ignoreLayout (Layout x)         = [x]
 
 data Dictionary m e = Dictionary
     { dDisplayName  :: SomeMessage m
-    , dPrimary      :: DicField m e
+    -- , dPrimary      :: DicField m e
     , dFields       :: Layout (DicField m e)
     , dShowFunc     :: Entity e -> Text
     -- , dSubDics      :: [SomeSubDic m e]
     }
+instance Typeable e => Show (Dictionary m e) where
+    show _ = show $ typeRep (Proxy :: Proxy e)
 
 data SomeDictionary m
     = forall a. (HasDictionary m a) => SomeDictionary { unSomeDictionary :: [a] }
@@ -87,7 +102,7 @@ instance Monoid FieldKind where
         | ReadOnly `elem` [a,b] = ReadOnly
         | otherwise             = Editable
 
-data Ref m e = forall r. HasDictionary m r => Ref [m] (EntityField r (Key e))
+-- data Ref m e = forall r. HasDictionary m r => Ref [m] (EntityField r (Key e))
 
 class ForeignKey a r e | a -> r e where
     filterFK    :: a -> Key e -> Filter r
@@ -113,15 +128,13 @@ data DicField m e   = {- forall t. (FieldForm m e t, FieldToText m t)
     , dfKind        :: FieldKind
     }
 
-isNormal :: DicField m e -> Bool
-isNormal (DicField {..}) = case dfIndex of 
-    NormalField{..} -> True
-    _  -> False
+isNormal :: DicFieldIndex m e -> Bool
+isNormal (NormalField {..}) =  True
+isNormal _  = False
 
-isRef :: DicField m e -> Bool
-isRef (DicField {..}) = case dfIndex of 
-    RefField{..} -> True
-    _  -> False
+isRef :: DicFieldIndex m e -> Bool
+isRef (RefField{..}) = True
+isRef _  = False
 
 class FieldToText m a where
     fieldToText :: a -> HandlerT m IO (Maybe Text)
@@ -248,7 +261,10 @@ editR root sd k = root <> "/edit/" <> T.pack (show sd) <> "/" <> toPathPiece k
 listR :: Text -> SomeDictionary m -> Text
 listR root sd = root <> "/list/" <> T.pack (show sd)
 
+instance (Default t) => Default (FormResult t) where
+    def = FormSuccess def
 
+{-
 dicFieldAForm :: PersistEntity e => DicField m e -> Entity e -> AForm (HandlerT m IO) (Entity e)
 dicFieldAForm (DicField {..}) (ent :: Entity e) 
     = case dfIndex of
@@ -291,3 +307,9 @@ dictionaryForm me
 dictionaryAForm :: HasDictionary m e => Maybe (Entity e) -> AForm (HandlerT m IO) (Entity e)
 dictionaryAForm = formToAForm . fmap (fst *** ($ [])) . dictionaryForm
 
+_entityVal :: (Functor f, PersistEntity record) => (record -> f record) -> Entity record -> f (Entity record)
+_entityVal f e = (\v -> e { entityVal = v }) <$> f (entityVal e)
+
+_entityKey :: (Functor f, PersistEntity record) => (Key record -> f (Key record)) -> Entity record -> f (Entity record)
+_entityKey f e = (\v -> e { entityKey = v }) <$> f (entityKey e)
+-}

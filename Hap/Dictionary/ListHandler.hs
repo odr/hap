@@ -54,7 +54,8 @@ postListR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) = do
                     $if not (ppIsSelect pp)
                         <th align=center bgcolor=blue width=20px>
                             <a href=#{editR root sd defKey}>+
-                    $forall df <- dPrimary dic : ignoreLayout (dFields dic)
+                    $forall df <- ignoreLayout (dFields dic)
+                    $# {- dPrimary dic : -} 
                         <th  bgcolor=blue>_{maybe (fsLabel (dfSettings df)) SomeMessage (dfShort df)}
                     <th align=center bgcolor=blue width=20px>-
                 $forall (rec,key,txt) <- recs
