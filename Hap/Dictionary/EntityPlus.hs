@@ -9,7 +9,7 @@ import qualified Data.Text as T
 import Control.Lens
 
 import Hap.Dictionary.Types
-import Hap.Dictionary.Utils(setByEF)
+-- import Hap.Dictionary.Utils(setByEF)
 
 data EntityRef m e = forall r a. (HasDictionary m r, ForeignKey a r e) => EntityRef 
     { erForeignKey :: a 

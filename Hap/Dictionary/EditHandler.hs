@@ -101,7 +101,7 @@ postEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
   where
     produce ep = do
         $logDebug $ debugMess "postEditR: ep = {}" $ Only $ Shown ep
-        ((result, widget), enctype) <- runFormPost $ entityPlusMForm ep
+        ((result, _), _) <- runFormPost $ entityPlusMForm ep
         $logDebug $ debugMess "postEditR: result = {}" $ Only $ Shown result
         root <- getRoot
         case result of

@@ -9,6 +9,7 @@ import Hap.Dictionary.Types
 import Hap.Dictionary.Pager
 import Hap.Dictionary.Utils(getRoot, showPersistField, widgetToHtml)
 import Hap.Dictionary.Hap
+import Hap.Dictionary.EDSL(fld)
 
 getListR :: (YesodHap m) => SomeDictionary m -> HandlerT m IO Html
 getListR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) = do
@@ -54,7 +55,7 @@ postListR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) = do
                     $if not (ppIsSelect pp)
                         <th align=center bgcolor=blue width=20px>
                             <a href=#{editR root sd defKey}>+
-                    $forall df <- ignoreLayout (dFields dic)
+                    $forall df <- pri : ignoreLayout (dFields dic)
                     $# {- dPrimary dic : -} 
                         <th  bgcolor=blue>_{maybe (fsLabel (dfSettings df)) SomeMessage (dfShort df)}
                     <th align=center bgcolor=blue width=20px>-
@@ -75,4 +76,5 @@ postListR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) = do
   where
     dic = getDictionary :: Dictionary m a
     defKey = toPersistValue (def :: Key a)
+    pri = fld persistIdField :: DicField m a
 

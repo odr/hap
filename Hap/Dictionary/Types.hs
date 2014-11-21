@@ -8,7 +8,7 @@ module Hap.Dictionary.Types where
 import Hap.Dictionary.Import
 import Control.Monad(liftM2, join)
 import qualified Control.Monad.Trans.State as State
-import Data.Monoid(Endo(..))
+-- import Data.Monoid(Endo(..))
 import qualified Data.Text as T
 import Data.Typeable
 import           Data.Map (Map)
@@ -18,7 +18,7 @@ import qualified Data.Foldable as FD
 import qualified Data.Traversable as TR
 
 import Hap.Dictionary.Hap
-import Hap.Dictionary.Utils(getRoot, showPersistField, getByEF, setByEF)
+import Hap.Dictionary.Utils(getRoot, showPersistField, setByEF, eqEF)
 
 class   (Default e, PersistEntity e, PersistEntityBackend e ~ YesodPersistBackend m
         , Typeable e, PersistField e, PathPiece (Key e), Show e, Eq e
@@ -54,6 +54,7 @@ instance Monad Layout where
     return = Layout
     (Horizontal ts) >>= f = Horizontal $ map (join . fmap f) ts
     (Vertical ts)   >>= f = Vertical   $ map (join . fmap f) ts
+    Layout t        >>= f = f t
 
 transposeLayout :: Layout t -> Layout t 
 transposeLayout (Horizontal xs) = Vertical $ map transposeLayout xs
@@ -107,14 +108,17 @@ instance Monoid FieldKind where
 class ForeignKey a r e | a -> r e where
     filterFK    :: a -> Key e -> Filter r
     setFK       :: a -> Key e -> Entity r -> Entity r
+    eqFK        :: forall t. a -> EntityField r t -> Bool
 instance (PersistEntity r, PersistField (Key e)) 
         => ForeignKey (EntityField r (Key e)) r e where
     filterFK ef key = ef ==. key
     setFK = setByEF
+    eqFK = eqEF
 instance (PersistEntity r, PersistField (Key e)) 
         => ForeignKey (EntityField r (Maybe (Key e))) r e where
     filterFK ef key = ef ==. Just key
     setFK ef key = setByEF ef (Just key)
+    eqFK = eqEF
 
 data DicFieldIndex m e 
     = forall t. (FieldForm m e t, FieldToText m t) => NormalField [m] (EntityField e t)
@@ -150,8 +154,8 @@ instance FieldToText m a => FieldToText m (Maybe a) where
     fieldToText = maybe (return Nothing) fieldToText
 
 entityToTexts :: (HasDictionary m a, YesodHap m) => [m] -> Entity a -> HandlerT m IO [Maybe Text]
-entityToTexts (_ :: [m]) (ent :: Entity a) = fmap ((Just (showPersistField $ entityKey ent):) . reverse)
-                    $ State.execStateT  (mapM_ (\df -> fToT df ent) fields
+entityToTexts (_ :: [m]) (ent0 :: Entity a) = fmap ((Just (showPersistField $ entityKey ent0):) . reverse)
+                    $ State.execStateT  (mapM_ (\df -> fToT df ent0) fields
                                         ) [] 
   where
     fields = case getDictionary :: Dictionary m a of

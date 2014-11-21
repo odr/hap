@@ -32,10 +32,12 @@ instance HasDictionary App Email where
     getDictionary
         = mkDic MsgEmails 
             -- ( fld EmailId       )
-            ( Vertical $ pure <$>
-                [ fld EmailUser     # label MsgUser
-                , fld EmailEmail    # label MsgEmail
-                , fld EmailVerkey   # label MsgVerkey
-                                    # readonly
+            ( Vertical 
+                [ fld EmailUser     # label MsgUser # pure
+                , Horizontal $ pure <$>
+                    [ fld EmailEmail    # label MsgEmail
+                    , fld EmailVerkey   # label MsgVerkey
+                                        # readonly
+                    ]
                 ]
             )
