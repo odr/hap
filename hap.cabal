@@ -27,7 +27,8 @@ library
                     Settings
                     Settings.StaticFiles
                     Settings.Development
-                    -- Foundation_
+                    App
+                    ModelTypes
                     Model
                     Foundation
                     Dics

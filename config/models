@@ -1,6 +1,8 @@
 User
-    ident Text
-    password Text Maybe
+    ident           Text
+    password        Text Maybe
+    employment      Employment default='Unemployed' 
+    familyStatus    FamilyStatus Maybe
     UniqueUser ident
     deriving Eq
     deriving Show

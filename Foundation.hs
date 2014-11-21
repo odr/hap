@@ -1,63 +1,31 @@
 {-# LANGUAGE FlexibleInstances #-}
-module Foundation (module Foundation) where
+module Foundation (module App, module Foundation) where
 
 import Hap.Dictionary.Import
 
--- import Foundation_
+import App
 
 import qualified Data.Text as T
 import Text.Hamlet (hamletFile)
 import Text.Jasmine (minifym)
 import Yesod
 import Yesod.Auth
-import Network.HTTP.Client.Conduit (Manager, HasHttpManager (getHttpManager))
+--import Network.HTTP.Client.Conduit (Manager, HasHttpManager (getHttpManager))
 import qualified Yesod.Auth.BrowserId as BID
 import Yesod.Default.Config
 import Yesod.Default.Util (addStaticContentExternal)
 import Yesod.Form.Jquery(YesodJquery(..))
+import qualified Settings
+import           Settings (widgetFile, Extra (..))
 import Yesod.Static
-import qualified Database.Persist
-import Yesod.Core.Types (Logger)
 
 import Hap.Dictionary.EDSL
-import Hap.Dictionary.Hap(Hap, HapMessage)
 
 import Model
-import           Settings (widgetFile, Extra (..))
-import qualified Settings
+-- import           Settings (widgetFile, Extra (..))
 import Settings.Development (development)
 import Settings.StaticFiles
 
-
--- | The site argument for your application. This can be a good place to
--- keep settings and values requiring initialization before your application
--- starts running, such as database connections. Every handler will have
--- access to the data present here.
-data App = App
-    { settings :: AppConfig DefaultEnv Extra
-    , getStatic :: Static -- ^ Settings for static file serving.
-    , connPool :: Database.Persist.PersistConfigPool Settings.PersistConf -- ^ Database connection pool.
-    , httpManager :: Manager
-    , persistConfig :: Settings.PersistConf
-    , appLogger :: Logger
-    , getHap :: Hap
-    }
-
-instance HasHttpManager App where
-    getHttpManager = httpManager
-
--- Set up i18n messages. See the message folder.
-mkMessage "App" "messages" "en"
-
--- This instance is required to use forms. You can modify renderMessage to
--- achieve customized and internationalized form validation messages.
-instance RenderMessage App FormMessage where
-    renderMessage _ _ = defaultFormMessage
-
-instance RenderMessage App HapMessage where
-    renderMessage = renderMessage . getHap
-
-type SomeDictionary' = SomeDictionary App
 
 -- This is where we define all of the routes in our application. For a full
 -- explanation of the syntax, please see:
@@ -167,6 +135,8 @@ instance YesodAuth App where
                 fmap Just $ insert User
                     { userIdent = credsIdent creds
                     , userPassword = Nothing
+                    , userEmployment = Employed
+                    , userFamilyStatus = Nothing
                     }
 
     -- You can add other plugins like BrowserID, email or OAuth here

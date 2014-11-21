@@ -18,11 +18,16 @@ instance Default User
 instance HasDictionary App User where
     getDictionary
         = mkDic MsgUsers 
-            -- ( fld UserIdent     )
-            ( Vertical $ pure <$>
-                [ fld UserIdent     # label MsgIdent
-                , ref def EmailUser
-                , fld UserPassword  # label MsgPassword
+            ( Vertical 
+                [ Horizontal $ pure <$> 
+                    [ fld UserIdent     # label MsgIdent
+                    , fld UserPassword  # label MsgPassword 
+                    ]
+                , ref def EmailUser # pure
+                , Horizontal $ pure <$>
+                    [ fld UserEmployment    # label MsgEmployment
+                    , fld UserFamilyStatus  # label MsgFamilyStatus
+                    ]
                 ]
             )
             # recShowField UserIdent
@@ -31,7 +36,6 @@ instance Default Email
 instance HasDictionary App Email where
     getDictionary
         = mkDic MsgEmails 
-            -- ( fld EmailId       )
             ( Vertical 
                 [ fld EmailUser     # label MsgUser # pure
                 , Horizontal $ pure <$>

@@ -6,16 +6,31 @@ module Hap.Dictionary.EDSL
 	, SomeDictionary
     , YesodHap
     , Layout (..)
+    , FieldForm (..)
+    , FieldToText (..)
 	) where
 
 import Hap.Dictionary.Import as Hap.Dictionary.EDSL
 import qualified Control.Monad.Trans.State as S
+import Data.List(find)
 import qualified Data.Traversable as TR
 import Data.Typeable(Typeable)
 import Hap.Dictionary.Utils(showEF)
 import Hap.Dictionary.Types
 import Hap.Dictionary.FieldFormI as Hap.Dictionary.EDSL()
 import Yesod
+
+listFieldAForm :: (RenderMessage m FormMessage, RenderMessage m mess, Eq a) 
+        => [(mess, a)] -> [e] -> FieldSettings m -> Maybe a -> AForm (HandlerT m IO) a
+listFieldAForm xs es fs ma = areq (selectFieldList xs) fs ma
+
+listFieldAFormOpt :: (RenderMessage m FormMessage, RenderMessage m mess, Eq a) 
+        => [(mess, a)] -> [e] -> FieldSettings m -> Maybe (Maybe a) -> AForm (HandlerT m IO) (Maybe a)
+listFieldAFormOpt xs es fs ma = aopt (selectFieldList xs) fs ma
+
+listFieldToText :: (RenderMessage m mess, Eq a) 
+        => [(mess, a)] -> a -> HandlerT m IO (Maybe Text)
+listFieldToText xs x = getMessageRender >>= \mr -> return (fmap (mr . fst) $ find ((x==) . snd) xs)
 
 ------------------- DicEDSL -----------------------------
 mkDic   :: (RenderMessage m mess, PersistEntity a, Typeable a, PersistEntityBackend a ~ SqlBackend)
