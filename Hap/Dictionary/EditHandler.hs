@@ -108,7 +108,7 @@ postEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
             FormSuccess rep -> do
                 ep' <- runDB $ putEntityPlus Nothing rep 
                 setMessageWidget [whamlet|
-                        <h2 .info>_{MsgSaved}
+                        <h4 .info>_{MsgSaved}
                         <hr>
                     |]
                 -- showForm sd (toPersistValue $ entityKey $ _epEntity ep') widget enctype
@@ -116,7 +116,8 @@ postEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
                 -- return $ toJSON $ entityKey $ _epEntity ep'
             FormFailure xs -> do
                 setMessageWidget [whamlet|
-                        <h2 .error>_{MsgError $ T.unlines xs}
+                        $forall e <- xs
+                            <h4 .error>_{MsgError e}
                         <hr>
                     |]
                 redirect $ editR root sd v
@@ -124,7 +125,7 @@ postEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
 --                 editForm (dicName <> ": " <> toPathPiece v) sd v widget enctype
             FormMissing -> do
                 setMessageWidget [whamlet|
-                        <h2 .error>_{MsgError "Missing form"}
+                        <h4 .error>_{MsgError "Missing form"}
                         <hr>
                     |]
                 redirect $ editR root sd v

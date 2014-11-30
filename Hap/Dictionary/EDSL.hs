@@ -18,15 +18,15 @@ import Data.Typeable(Typeable)
 import Hap.Dictionary.Utils(showEF)
 import Hap.Dictionary.Types
 import Hap.Dictionary.FieldFormI as Hap.Dictionary.EDSL()
-import Yesod
+-- import Yesod
 
 listFieldAForm :: (RenderMessage m FormMessage, RenderMessage m mess, Eq a) 
         => [(mess, a)] -> [e] -> FieldSettings m -> Maybe a -> AForm (HandlerT m IO) a
-listFieldAForm xs es fs ma = areq (selectFieldList xs) fs ma
+listFieldAForm xs _ fs ma = areq (selectFieldList xs) fs ma
 
 listFieldAFormOpt :: (RenderMessage m FormMessage, RenderMessage m mess, Eq a) 
         => [(mess, a)] -> [e] -> FieldSettings m -> Maybe (Maybe a) -> AForm (HandlerT m IO) (Maybe a)
-listFieldAFormOpt xs es fs ma = aopt (selectFieldList xs) fs ma
+listFieldAFormOpt xs _ fs ma = aopt (selectFieldList xs) fs ma
 
 listFieldToText :: (RenderMessage m mess, Eq a) 
         => [(mess, a)] -> a -> HandlerT m IO (Maybe Text)
