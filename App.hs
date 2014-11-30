@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell, OverloadedStrings, MultiParamTypeClasses #-}
 module App where
 
 import Hap.Dictionary.Import

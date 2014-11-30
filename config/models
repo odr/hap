@@ -10,7 +10,7 @@ User
     deriving Generic
 
 Email
-    email Text
+    email EmailF
     user UserId Maybe
     verkey Text Maybe
     UniqueEmail email

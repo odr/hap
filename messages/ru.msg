@@ -12,7 +12,7 @@ Email: Адрес эл.почты
 Ident: Идентификатор
 Verkey: Проверочный ключ
 
-EmploymentEmployed  : Нанят
+EmploymentEmployed  : Работает
 EmploymentUnemployed: Безработный
 EmploymentRetired   : Уволен
 
@@ -20,3 +20,5 @@ FamilyStatusSingle  : Холост
 FamilyStatusMarried : Женат
 FamilyStatusDevorsed: Разведен
 FamilyStatusWidowed : Вдов
+
+InvalidEmailF: Неверный почтовый адрес. Адрес должен быть в форме <что угодно>@<что угодно>.<что угодно> и не содержать пробелов

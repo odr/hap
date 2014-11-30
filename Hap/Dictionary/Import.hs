@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell, OverloadedStrings #-}
 module Hap.Dictionary.Import
     ( module Hap.Dictionary.Import
     ) where

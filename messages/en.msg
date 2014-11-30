@@ -20,3 +20,5 @@ FamilyStatusSingle  : Single
 FamilyStatusMarried : Married
 FamilyStatusDevorsed: Devorsed    
 FamilyStatusWidowed : Widowed
+
+InvalidEmailF: Email is invalid. Email shouldn't have any spaces. It should have form <any>@<any>.<any>

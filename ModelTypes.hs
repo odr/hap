@@ -3,12 +3,16 @@ module ModelTypes where
 
 import App
 import Hap.Dictionary.Import
+import Hap.Dictionary.FieldFormI()
 import Hap.Dictionary.EDSL
-import Database.Persist.TH
+import qualified Data.Char as C
+-- import Database.Persist.TH
 import Database.Persist.Sql hiding (Single)
 import qualified Data.Text as T
 import Data.Fixed
 import Safe(readMay)
+
+--------------------------------------------------
 
 data Employment = Employed | Unemployed | Retired
     deriving (Show, Read, Eq)
@@ -29,6 +33,8 @@ instance FieldForm App e (Maybe Employment) where
 instance FieldToText App Employment where
     fieldToText = listFieldToText messEmployment
 
+--------------------------------------------------
+
 data FamilyStatus = Single | Married | Devorsed | Widowed
     deriving (Show, Read, Eq)
 derivePersistField "FamilyStatus"
@@ -48,6 +54,8 @@ instance FieldForm App e (Maybe FamilyStatus) where
 instance FieldToText App FamilyStatus where
     fieldToText = listFieldToText messFamilyStatus
 
+-------------------------------------------------------    
+
 newtype FPrice = FPrice { unPrice :: Fixed E2 } deriving (Eq, Show, Read)
 
 instance PersistField FPrice where
@@ -60,9 +68,53 @@ instance PersistField FPrice where
             $ readMay s
       where
         s = T.unpack txt
-    fromPersistValue v = Left $ "Invalid Price value: " <> (T.pack $ show v)
+    fromPersistValue v = Left $ "Invalid Price value: " <> T.pack (show v)
 
 instance PersistFieldSql FPrice where
     sqlType _ = SqlNumeric 14 2 
+
+-----------------------------------------------------
+
+newtype EmailF = EmailF { unEmailF :: Text } deriving (Eq, Show)
+instance PersistField EmailF where
+    toPersistValue = PersistText . unEmailF
+    fromPersistValue = fmap EmailF . fromPersistValue
+    {-
+    fromPersistValue (PersistText txt) | check = Right $ EmailF txt 
+      where
+        check   = all ($ txt)
+                [ not . T.null . snd . T.breakOn (".") . snd . T.breakOn ("@") 
+                , (==Nothing) . T.find C.isSpace
+                ]
+    fromPersistValue v 
+        = Left $ "EmailF should be in form '<...>@<...>.<...>' without any spaces. Invalid EmailF value: " 
+                <> T.pack (show v)
+    -}
+
+instance PersistFieldSql EmailF where
+    sqlType _ = SqlString
+
+instance Default EmailF where
+    def = EmailF def
+
+checkedEmailField = check validateEmail emailField
+  where
+    validateEmail txt 
+        | all ($ txt)   [ not . T.null . snd . T.breakOn (".") . snd . T.breakOn ("@") 
+                        , (==Nothing) . T.find C.isSpace
+                        ] = Right txt
+        | otherwise = Left MsgInvalidEmailF
+
+
+instance FieldForm App e EmailF where
+    fieldAForm _ fs = fmap EmailF . areq checkedEmailField fs . fmap unEmailF
+      where
+
+
+instance FieldForm App e (Maybe EmailF) where
+    fieldAForm _ fs = fmap (fmap EmailF) . aopt checkedEmailField fs . fmap (fmap unEmailF)
+
+instance FieldToText App EmailF where
+    fieldToText = fieldToText . unEmailF
 
 
