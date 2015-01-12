@@ -6,7 +6,7 @@ import Network.HTTP.Client.Conduit (Manager, HasHttpManager (getHttpManager))
 import Yesod.Default.Config
 import Yesod.Static
 import qualified Settings
-import           Settings (widgetFile, Extra (..))
+import           Settings (Extra (..))
 import Hap.Dictionary.Hap(Hap, HapMessage)
 import Yesod.Core.Types (Logger)
 import qualified Database.Persist

@@ -1,14 +1,20 @@
 {-# LANGUAGE ExistentialQuantification, ScopedTypeVariables, ConstraintKinds
 			, FlexibleInstances, LambdaCase, TemplateHaskell, QuasiQuotes, MultiParamTypeClasses
 			, FlexibleContexts, OverloadedStrings, RecordWildCards
-            , FunctionalDependencies, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+            , FunctionalDependencies, DeriveFunctor, DeriveFoldable, DeriveTraversable
+            -- , DataKinds, TypeOperators
+            #-}
+            -- , PolyKinds #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Hap.Dictionary.Types where
 
 import Hap.Dictionary.Import
+import Control.Lens
 import Control.Monad(liftM2, join)
 import qualified Control.Monad.Trans.State as State
+import Control.Monad.Trans.Writer(WriterT(..))
 -- import Data.Monoid(Endo(..))
+import qualified Data.Set as S
 import qualified Data.Text as T
 import Data.Typeable
 import           Data.Map (Map)
@@ -19,6 +25,8 @@ import qualified Data.Traversable as TR
 
 import Hap.Dictionary.Hap
 import Hap.Dictionary.Utils(getRoot, showPersistField, setByEF, eqEF)
+
+-- import Data.HList.CommonMain
 
 class   (Default e, PersistEntity e, PersistEntityBackend e ~ YesodPersistBackend m
         , Typeable e, PersistField e, PathPiece (Key e), Show e, Eq e
@@ -42,7 +50,7 @@ data Layout t
     = Horizontal [Layout t]
     | Vertical [Layout t]
     | Layout t
-    deriving (Show, Functor, FD.Foldable, TR.Traversable)
+    deriving (Show, Functor, FD.Foldable, TR.Traversable) -- )
 
 instance Applicative Layout where
     pure = Layout
@@ -66,14 +74,30 @@ ignoreLayout (Horizontal xs)    = concatMap ignoreLayout xs
 ignoreLayout (Vertical xs)      = concatMap ignoreLayout xs
 ignoreLayout (Layout x)         = [x]
 
+data ValidationLevel = ValidationError | ValidationWarning
+    deriving (Eq, Ord, Show)
+
+data IgnoreLevel = IgnoreNothing | IgnoreWarning | IgnoreAll   
+
+type Validations = S.Set (ValidationLevel, Text)
+
+filterValidation :: IgnoreLevel -> ValidationLevel -> Bool
+filterValidation IgnoreNothing _ = True
+filterValidation IgnoreWarning ValidationWarning = False
+filterValidation IgnoreWarning _ = True
+filterValidation IgnoreAll _ = False
+
+filterValidations :: IgnoreLevel -> Validations -> Validations
+filterValidations il = S.filter (filterValidation il . fst) 
 
 data Dictionary m e = Dictionary
     { dDisplayName  :: SomeMessage m
-    -- , dPrimary      :: DicField m e
     , dFields       :: Layout (DicField m e)
     , dShowFunc     :: Entity e -> Text
-    -- , dSubDics      :: [SomeSubDic m e]
+    , dBeforeSave   :: Maybe e -> e -> WriterT Validations (YesodDB m) e
+    , dAfterSave    :: e -> YesodDB m ()
     }
+
 instance Typeable e => Show (Dictionary m e) where
     show _ = show $ typeRep (Proxy :: Proxy e)
 
@@ -108,14 +132,14 @@ instance Monoid FieldKind where
 class ForeignKey a r e | a -> r e where
     filterFK    :: a -> Key e -> Filter r
     setFK       :: a -> Key e -> Entity r -> Entity r
-    eqFK        :: forall t. a -> EntityField r t -> Bool
-instance (PersistEntity r, PersistField (Key e)) 
-        => ForeignKey (EntityField r (Key e)) r e where
+    eqFK        :: forall t r'. PersistEntity r' => a -> EntityField r' t -> Bool
+
+instance (PersistEntity r, PersistField (Key e)) => ForeignKey (EntityField r (Key e)) r e where
     filterFK ef key = ef ==. key
     setFK = setByEF
     eqFK = eqEF
-instance (PersistEntity r, PersistField (Key e)) 
-        => ForeignKey (EntityField r (Maybe (Key e))) r e where
+
+instance (PersistEntity r, PersistField (Key e)) => ForeignKey (EntityField r (Maybe (Key e))) r e where
     filterFK ef key = ef ==. Just key
     setFK ef key = setByEF ef (Just key)
     eqFK = eqEF
@@ -268,3 +292,27 @@ listR root sd = root <> "/list/" <> T.pack (show sd)
 instance (Default t) => Default (FormResult t) where
     def = FormSuccess def
 
+data EntityRef m e = forall r a. (HasDictionary m r, ForeignKey a r e) => EntityRef 
+    { erForeignKey :: a 
+    , erEntities   :: [EntityPlus m r]
+    } 
+instance Show (EntityRef m e) where
+    show (EntityRef _ es) = "EntityRef: " ++ show es
+
+data EntityPlus m e = EntityPlus
+    { _epEntity :: Entity e
+    , _epRefs   :: [EntityRef m e]
+    -- import, _epRefs'  :: [()]
+    }
+makeLenses ''EntityPlus
+
+instance (PersistEntity e, Show (Key e), Show e) => Show (EntityPlus m e) where
+    show (EntityPlus e es) = "EntityPlus { epEntity = " ++ show e ++ ", " ++ show es ++ "}"
+
+instance HasDictionary m e => Default (EntityPlus m e) where
+    def = EntityPlus def 
+        $ map (\(RefField (_::[(m,r)]) ef _) -> EntityRef ef []) 
+        $ filter isRef 
+        $ map dfIndex 
+        $ ignoreLayout 
+        $ dFields (getDictionary :: Dictionary m e)

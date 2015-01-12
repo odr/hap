@@ -36,8 +36,10 @@ getByEF ef = getConst . fieldLens ef Const
 setByEF :: PersistEntity e => EntityField e t -> t -> Entity e -> Entity e
 setByEF ef val = runIdentity . fieldLens ef (Identity . const val)
 
-eqEF :: PersistEntity e => EntityField e t1 -> EntityField e t2 -> Bool
-eqEF a b = on (==) fieldDB (persistFieldDef a) (persistFieldDef b)
+eqEF :: (PersistEntity e1, PersistEntity e2) => EntityField e1 t1 -> EntityField e2 t2 -> Bool
+eqEF (a :: EntityField e1 t1) (b :: EntityField e2 t2) 
+    =  on (==) entityDB (entityDef ([]::[e1])) (entityDef ([]::[e2]))
+    && on (==) fieldDB (persistFieldDef a) (persistFieldDef b)
 
 entityFieldToPersist :: PersistEntity e => EntityField e t -> Entity e -> SomePersistField
 entityFieldToPersist ef (Entity key (ent :: e))

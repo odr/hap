@@ -20,7 +20,8 @@ derivePersistField "Employment"
 instance Default Employment where
     def = Unemployed
 
-messEmployment =    [ (MsgEmploymentEmployed  , Employed)
+messEmployment  ::  [(AppMessage, Employment)]
+messEmployment  =   [ (MsgEmploymentEmployed  , Employed)
                     , (MsgEmploymentUnemployed, Unemployed) 
                     , (MsgEmploymentRetired   , Retired)
                     ]
@@ -39,6 +40,7 @@ data FamilyStatus = Single | Married | Devorsed | Widowed
     deriving (Show, Read, Eq)
 derivePersistField "FamilyStatus"
 
+messFamilyStatus :: [(AppMessage, FamilyStatus)]
 messFamilyStatus =  [ (MsgFamilyStatusSingle  , Single)
                     , (MsgFamilyStatusMarried , Married)
                     , (MsgFamilyStatusDevorsed, Devorsed)
@@ -96,7 +98,10 @@ instance PersistFieldSql EmailF where
 
 instance Default EmailF where
     def = EmailF def
-
+checkedEmailField 
+    :: (RenderMessage (HandlerSite m) AppMessage,
+        RenderMessage (HandlerSite m) FormMessage, Monad m) 
+    => Field m Text
 checkedEmailField = check validateEmail emailField
   where
     validateEmail txt 
@@ -105,11 +110,8 @@ checkedEmailField = check validateEmail emailField
                         ] = Right txt
         | otherwise = Left MsgInvalidEmailF
 
-
 instance FieldForm App e EmailF where
     fieldAForm _ fs = fmap EmailF . areq checkedEmailField fs . fmap unEmailF
-      where
-
 
 instance FieldForm App e (Maybe EmailF) where
     fieldAForm _ fs = fmap (fmap EmailF) . aopt checkedEmailField fs . fmap (fmap unEmailF)

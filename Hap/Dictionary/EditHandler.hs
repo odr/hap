@@ -12,60 +12,64 @@ import Hap.Dictionary.Pager
 import Hap.Dictionary.Form 
 import Hap.Dictionary.EntityPlus
 import Hap.Dictionary.Utils(getRoot, setMessageWidget)
+import qualified Data.Set as S
+import Control.Monad.Trans.Except(runExceptT)
 
 getEditR :: (YesodHap m) => SomeDictionary m -> PersistValue -> HandlerT m IO Html
 getEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v 
-    = fmap (fromMaybe mempty) $ withEntityPlus (getDictionary :: Dictionary m a) v produce
-  where
-    produce ent = do
-        $logDebug $ "entity: " <> T.pack (show ent)
-        (widget, enctype) <- generateFormPost $ entityPlusMForm ent
+    = fmap (fromMaybe mempty) $ withEntityPlus (getDictionary :: Dictionary m a) v (editEP sd v)
+  
+editEP :: (HasDictionary m e, YesodHap m) 
+    => SomeDictionary m -> PersistValue -> EntityPlus m e -> HandlerT m IO Html
+editEP (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v ent = do
+    $logDebug $ "entity: " <> T.pack (show ent)
+    (widget, enctype) <- generateFormPost $ entityPlusMForm ent
 {-
         showForm sd v widget enctype
 
 showForm :: (YesodHap m) => SomeDictionary m -> PersistValue -> WidgetT m IO () -> Enctype -> HandlerT m IO Html
 showForm sd@(SomeDictionary (_::[a]) :: SomeDictionary m) v widget enctype = do
 -}
-        dicName <- (dDisplayName (getDictionary :: Dictionary m a) #) <$> getMessageRender
-        let title = dicName <> ": " <> toPathPiece v
-        root <- getRoot
-        let edR = editR root sd v
-            lstR = listR root sd
-        [selId, formId, editorId] <- replicateM 3 newIdent
-        defaultLayout $ do
-            setTitle $ toHtml title
-            toWidget [cassius|
-                    .container
-                        width: 2000px
-                    .cell-editor
-                        padding-right: 10px
-                    .cell-selector
-                        padding-left: 10px
-                |]
-            [whamlet|
-                <h1>#{title}
-                <table>
-                    <tr>
-                        <td .cell-editor>
-                            <div ##{editorId} onclick=hidePager(this) display=inline>
-                                <form ##{formId} method=post enctype=#{enctype}>
-                                    ^{widget}
-                                    <div display=inline>
-                                        <button type=submit >Submit
-                                        <button type=button onclick=window.location='#{lstR}'>To List
-                                        <button type=button onclick=editor_del()>Delete
-                        <td ##{selId} .cell-selector hidden>
-                            ^{pager $ Just selId}
+    dicName <- (dDisplayName (getDictionary :: Dictionary m a) #) <$> getMessageRender
+    let title = dicName <> ": " <> toPathPiece v
+    root <- getRoot
+    let edR = editR root sd v
+        lstR = listR root sd
+    [selId, formId, editorId] <- replicateM 3 newIdent
+    defaultLayout $ do
+        setTitle $ toHtml title
+        toWidget [cassius|
+                .container
+                    width: 2000px
+                .cell-editor
+                    padding-right: 10px
+                .cell-selector
+                    padding-left: 10px
             |]
-            toWidget [julius|
-                function editor_del() {
-                    $.ajax({
-                        type: "DELETE"
-                        , url: #{toJSON edR}
-                        , success: function () {window.location=#{toJSON lstR}}
-                    });                
-                }
-            |]
+        [whamlet|
+            <h1>#{title}
+            <table>
+                <tr>
+                    <td .cell-editor>
+                        <div ##{editorId} onclick=hidePager(this) display=inline>
+                            <form ##{formId} method=post enctype=#{enctype}>
+                                ^{widget}
+                                <div display=inline>
+                                    <button type=submit >Submit
+                                    <button type=button onclick=window.location='#{lstR}'>To List
+                                    <button type=button onclick=editor_del()>Delete
+                    <td ##{selId} .cell-selector hidden>
+                        ^{pager $ Just selId}
+        |]
+        toWidget [julius|
+            function editor_del() {
+                $.ajax({
+                    type: "DELETE"
+                    , url: #{toJSON edR}
+                    , success: function () {window.location=#{toJSON lstR}}
+                });                
+            }
+        |]
 
 
 withEntityPlus  :: (HasDictionary m e, YesodHap m, ToTypedContent a) 
@@ -106,14 +110,28 @@ postEditR (sd@(SomeDictionary (_ :: [a])) :: SomeDictionary m) v
         root <- getRoot
         case result of
             FormSuccess rep -> do
-                ep' <- runDB $ putEntityPlus Nothing rep 
-                setMessageWidget [whamlet|
-                        <h4 .info>_{MsgSaved}
-                        <hr>
-                    |]
-                -- showForm sd (toPersistValue $ entityKey $ _epEntity ep') widget enctype
-                redirect $ editR root sd $ toPersistValue $ entityKey $ _epEntity ep'
-                -- return $ toJSON $ entityKey $ _epEntity ep'
+                eep <- runDB $ runExceptT $ putEntityPlus IgnoreNothing Nothing rep
+                either
+                    (\errs -> do
+                        let vals = map (first $ (==ValidationError) &&& (== ValidationWarning)) $ S.toList errs
+                        setMessageWidget [whamlet|
+                                $forall ((isErr, isWarn),txt) <- vals                                
+                                    <h4 :isErr:.validation-error 
+                                            :isWarn:.validation-warning>#{txt}
+                                <hr>
+                            |]
+                        editEP sd (toPersistValue $ entityKey $ _epEntity rep) rep
+                        -- redirect $ editR root sd $ toPersistValue $ entityKey $ _epEntity rep
+                    )
+                    (\ep' -> do
+                        setMessageWidget [whamlet|
+                                <h4 .info>_{MsgSaved}
+                                <hr>
+                            |]
+                        redirect $ editR root sd $ toPersistValue $ entityKey $ _epEntity ep'
+                    )
+                    eep  
+
             FormFailure xs -> do
                 setMessageWidget [whamlet|
                         $forall e <- xs

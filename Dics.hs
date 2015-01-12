@@ -19,12 +19,12 @@ instance HasDictionary App User where
     getDictionary
         = mkDic MsgUsers 
             ( Vertical 
-                [ Horizontal $ pure <$> 
+                [ Horizontal $ map Layout
                     [ fld UserIdent     # label MsgIdent
                     , fld UserPassword  # label MsgPassword 
                     ]
-                , ref def EmailUser # pure
-                , Horizontal $ pure <$>
+                , Layout $ ref def EmailUser 
+                , Horizontal $ map Layout
                     [ fld UserEmployment    # label MsgEmployment
                     , fld UserFamilyStatus  # label MsgFamilyStatus
                     ]
@@ -37,8 +37,8 @@ instance HasDictionary App Email where
     getDictionary
         = mkDic MsgEmails 
             ( Vertical 
-                [ fld EmailUser     # label MsgUser # pure
-                , Horizontal $ pure <$>
+                [ Layout (fld EmailUser     # label MsgUser)
+                , Horizontal $ map Layout
                     [ fld EmailEmail    # label MsgEmail
                     , fld EmailVerkey   # label MsgVerkey
                                         # readonly

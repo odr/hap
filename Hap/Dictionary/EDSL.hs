@@ -37,7 +37,6 @@ mkDic   :: (RenderMessage m mess, PersistEntity a, Typeable a, PersistEntityBack
         => mess -> {-DicField m a -> -}Layout (DicField m a) -> Dictionary m a
 mkDic m flds = Dictionary
     { dDisplayName  = SomeMessage m
-    -- , dPrimary      = pk
     , dFields       = S.evalState (TR.mapM (\df@(DicField{dfIndex}) -> 
                             case dfIndex of
                                 RefField a b _ -> do
@@ -47,7 +46,8 @@ mkDic m flds = Dictionary
                                 _ -> return df
                         ) flds) (0 :: Int)
     , dShowFunc     = showEF persistIdField
-    -- , dSubDics      = []
+    , dBeforeSave   = \_ -> return
+    , dAfterSave    = const $ return ()
     }
 
 

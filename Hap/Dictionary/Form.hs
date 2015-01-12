@@ -6,7 +6,7 @@ import Control.Lens(traverse, ix, (^.), (.~))
 import qualified Data.Traversable as TR
 
 import Hap.Dictionary.Types
-import Hap.Dictionary.EntityPlus
+-- import Hap.Dictionary.EntityPlus
 
 entityPlusMForm :: (HasDictionary m e) 
         => EntityPlus m e -> Html -> MForm (HandlerT m IO) (FormResult (EntityPlus m e), WidgetT m IO ())

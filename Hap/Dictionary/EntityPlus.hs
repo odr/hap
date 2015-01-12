@@ -4,44 +4,21 @@ module Hap.Dictionary.EntityPlus where
 import Hap.Dictionary.Import 
 
 import Control.Monad(when)
+import Control.Monad.Trans.Writer(WriterT(..))
+import Control.Monad.Trans.Except(ExceptT(..), throwE)
 import Data.List((\\), find)
 import qualified Data.Text as T
-import Control.Lens
 
 import Hap.Dictionary.Types
--- import Hap.Dictionary.Utils(setByEF)
 
-data EntityRef m e = forall r a. (HasDictionary m r, ForeignKey a r e) => EntityRef 
-    { erForeignKey :: a 
-    , erEntities   :: [EntityPlus m r]
-    } 
-instance Show (EntityRef m e) where
-    show (EntityRef _ es) = "EntityRef: " ++ show es
-
-data EntityPlus m e = EntityPlus
-    { _epEntity  :: Entity e
-    , _epRefs    :: [EntityRef m e]
-    }
-makeLenses ''EntityPlus
+-- getByFK :: (ForeignKey a r e) => a -> [EntityRef m e] -> [EntityPlus m r]
+-- ngetByFK fk = concatMap erEntities . filter (eqFK fk . erForeignKey)
 
 _entityKey :: Functor f => (Key e -> f (Key e)) -> Entity e -> f (Entity e)
 _entityKey g e = fmap (\k -> e { entityKey = k }) $ g $ entityKey e
 
 _entityVal :: Functor f => (e -> f e) -> Entity e -> f (Entity e)
 _entityVal g e = fmap (\v -> e { entityVal = v }) $ g $ entityVal e
-
--- makeLenses ''EntityRef
-instance (PersistEntity e, Show (Key e), Show e) => Show (EntityPlus m e) where
-    show (EntityPlus e es) = "EntityPlus { epEntity = " ++ show e ++ ", " ++ show es ++ "}"
-
-
-instance HasDictionary m e => Default (EntityPlus m e) where
-    def = EntityPlus def 
-        $ map (\(RefField (_::[(m,r)]) ef _) -> EntityRef ef []) 
-        $ filter isRef 
-        $ map dfIndex 
-        $ ignoreLayout 
-        $ dFields (getDictionary :: Dictionary m e)
 
 getEntityPlus :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
         => Dictionary m e -> Key e -> YesodDB m (EntityPlus m e)
@@ -63,52 +40,55 @@ getFilteredEPs :: (HasDictionary m e, PersistQuery (YesodPersistBackend m))
 getFilteredEPs dic fs 
     = selectList fs [] >>= mapM (\ent -> EntityPlus ent <$> getRefsEP dic (entityKey ent)) 
 
+-- validateEntityPlus
+type ExYDB m = ExceptT Validations (YesodDB m)
+
 putEntityPlus :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
-        => Maybe e -> EntityPlus m e -> YesodDB m (EntityPlus m e)
-putEntityPlus mbold ep@(EntityPlus{..}) 
-    | k == def  = hardIns
-    | otherwise = maybe (get k) (return . Just) mbold >>= maybe hardIns
-        (\epv -> do
-            when (epv /= v) $ replace k v
-            rs <- putRefs k _epRefs
-            return ep { _epRefs = rs }
-        )
+        => IgnoreLevel -> Maybe e -> EntityPlus m e -> ExYDB m (EntityPlus m e)
+putEntityPlus il mbold (ep :: EntityPlus m e)
+    | k == def  = ins Nothing
+    | otherwise = lift (maybe (get k) (return . Just) mbold) >>= ins
   where
-    k = entityKey _epEntity
-    v = entityVal _epEntity
-    hardIns = do
-        key <- insert v
-        rs <- insertRefs key _epRefs
-        return $ EntityPlus (Entity key v) rs
+    dic = getDictionary :: Dictionary m e
+    k = entityKey $ _epEntity ep
+    v = entityVal $ _epEntity ep 
+    ins mbep = do
+        (v', valids) <- lift $ runWriterT $ dBeforeSave dic mbep v
+        let valids' = filterValidations il valids
+        if valids' == mempty 
+            then maybe
+                (do key <- lift $ insert v'
+                    rs <- insertRefs key $ _epRefs ep
+                    return $ EntityPlus (Entity key v') rs
+                )
+                (\epv -> do
+                    when (epv /= v') $ lift $ replace k v'
+                    rs <- putRefs k $ _epRefs ep
+                    return ep { _epRefs = rs }
+                )
+                mbep
+            else
+                throwE valids'
+      where
+        insertRefs key = mapM (insertRef key)
+        insertRef key (EntityRef ef (eps :: [EntityPlus m r])) 
+            = EntityRef ef <$> 
+                mapM (\ep' -> putEntityPlus il Nothing ep' { _epEntity = setFK ef key $ _epEntity ep' }) eps
 
-insertRefs :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
-        => Key e -> [EntityRef m e] -> YesodDB m [EntityRef m e]
-insertRefs key = mapM (insertRef key)
-
-insertRef :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
-        => Key e -> EntityRef m e -> YesodDB m (EntityRef m e)
-insertRef key (EntityRef ef (eps :: [EntityPlus m r])) 
-    = EntityRef ef <$> 
-        mapM (\ep@(EntityPlus{..}) -> putEntityPlus Nothing ep { _epEntity = setFK ef key $ _epEntity }) eps
-
-putRefs :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
-        => Key e -> [EntityRef m e] -> YesodDB m [EntityRef m e]
-putRefs key = mapM (putRef key)
-
-putRef :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) 
-        => Key e -> EntityRef m e -> YesodDB m (EntityRef m e)
-putRef (key :: Key e) (EntityRef ef (eps :: [EntityPlus m r])) = do
-    ents' <- selectList [filterFK ef key] []
-    lift $ $logDebug $ debugMess "Dictionary {}. Delete keys: {}" 
-        ( Shown (getDictionary :: Dictionary m e)
-        , Shown $ map toPathPiece $ map entityKey ents' \\ map (entityKey . _epEntity) eps
-        )
-    delEntities $ map entityKey ents' \\ map (entityKey . _epEntity) eps
-    EntityRef ef <$> 
-        mapM    (\ep -> putEntityPlus 
-                            (entityVal <$> find ((== entityKey (_epEntity ep)) . entityKey) ents') 
-                            ep { _epEntity = setFK ef key $ _epEntity ep}
-                ) eps
+        putRefs key = mapM putRef
+          where
+            putRef (EntityRef ef (eps :: [EntityPlus m r])) = do
+                ents' <- lift$ selectList [filterFK ef key] []
+                lift $ lift $ $logDebug $ debugMess "Dictionary {}. Delete keys: {}" 
+                    ( Shown (getDictionary :: Dictionary m e)
+                    , Shown $ map toPathPiece $ map entityKey ents' \\ map (entityKey . _epEntity) eps
+                    )
+                lift $ delEntities $ map entityKey ents' \\ map (entityKey . _epEntity) eps
+                EntityRef ef <$> 
+                    mapM    (\ep' -> putEntityPlus il
+                                        (entityVal <$> find ((== entityKey (_epEntity ep')) . entityKey) ents') 
+                                        ep' { _epEntity = setFK ef key $ _epEntity ep'}
+                            ) eps
 
 delEntities :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) => [Key e] -> YesodDB m ()
 -- TODO: optionally delete cascade
