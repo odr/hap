@@ -2,13 +2,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Hap.Dictionary.FieldFormI where
 
--- , ExistentialQuantification, RankNTypes, ScopedTypeVariables, RecordWildCards, LambdaCase	
-
 import Hap.Dictionary.Types(FieldForm(..), FieldToText(..))
 import Hap.Dictionary.Import
 import qualified Data.Text as T
--- import Data.Time(Day)
--- import GHC.Int(Int64)
 
 instance FieldToText m Text where
     fieldToText = return . Just

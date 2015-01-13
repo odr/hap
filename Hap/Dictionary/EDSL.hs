@@ -1,24 +1,21 @@
 {-# LANGUAGE RecordWildCards, ScopedTypeVariables, NamedFieldPuns #-}
 module Hap.Dictionary.EDSL
-	( module Hap.Dictionary.EDSL
-	, HasDictionary(..)
+    ( module Hap.Dictionary.EDSL
+    , HasDictionary(..)
     , HasMapDict(..)
-	, SomeDictionary
+    , SomeDictionary
     , YesodHap
     , Layout (..)
     , FieldForm (..)
     , FieldToText (..)
-	) where
+    ) where
 
 import Hap.Dictionary.Import as Hap.Dictionary.EDSL
 import qualified Control.Monad.Trans.State as S
--- import Data.List(find)
 import qualified Data.Traversable as TR
-import Data.Typeable(Typeable)
 import Hap.Dictionary.Utils(showEF)
 import Hap.Dictionary.Types
 import Hap.Dictionary.FieldFormI as Hap.Dictionary.EDSL()
--- import Yesod
 
 listFieldAForm :: (RenderMessage m FormMessage, RenderMessage m mess, Eq a) 
         => [(mess, a)] -> [e] -> FieldSettings m -> Maybe a -> AForm (HandlerT m IO) a

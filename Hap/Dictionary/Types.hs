@@ -4,30 +4,23 @@
             , FunctionalDependencies, DeriveFunctor, DeriveFoldable, DeriveTraversable
             , NoImplicitPrelude
             #-}
-            -- , PolyKinds #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Hap.Dictionary.Types where
 
 import Hap.Dictionary.Import
 import GHC.Read(Read(..))
 import Control.Lens
--- import Control.Monad(liftM2, join)
 import qualified Control.Monad.Trans.State as State
 import Control.Monad.Trans.Writer(WriterT(..))
--- import Data.Monoid(Endo(..))
 import qualified Data.Set as S
 import qualified Data.Text as T
 import Data.Typeable
--- import           Data.Map (Map)
 import qualified Data.Map as M
--- import Data.Char(toLower)
 import qualified Data.Foldable as FD
 import qualified Data.Traversable as TR
 
 import Hap.Dictionary.Hap
 import Hap.Dictionary.Utils(getRoot, showPersistField, setByEF, eqEF)
-
--- import Data.HList.CommonMain
 
 class   (Default e, PersistEntity e, PersistEntityBackend e ~ YesodPersistBackend m
         , Typeable e, PersistField e, PathPiece (Key e), Show e, Eq e
@@ -40,12 +33,8 @@ class   ( Yesod m, RenderMessage m FormMessage, RenderMessage m HapMessage
         )
         => YesodHap m where
 
--- class HasSubDic m p e | e -> m p where
---     getSubDic :: Dictionary m e -> SubDic m p e
-
 class HasMapDict m where
     getMapDict :: Map String (SomeDictionary m)
-    -- getDict :: String -> SomeDictionary m
 
 data Layout t 
     = Horizontal [Layout t]
@@ -128,8 +117,6 @@ instance Monoid FieldKind where
         | ReadOnly `elem` [a,b] = ReadOnly
         | otherwise             = Editable
 
--- data Ref m e = forall r. HasDictionary m r => Ref [m] (EntityField r (Key e))
-
 class ForeignKey a r e | a -> r e where
     filterFK    :: a -> Key e -> Filter r
     setFK       :: a -> Key e -> Entity r -> Entity r
@@ -149,9 +136,8 @@ data DicFieldIndex m e
     = forall t. (FieldForm m e t, FieldToText m t) => NormalField [m] (EntityField e t)
     | forall r a. (HasDictionary m r, ForeignKey a r e) => RefField [(m,r)] a Int
 
-data DicField m e   = {- forall t. (FieldForm m e t, FieldToText m t) 
-                    => -} DicField 
-    { dfIndex       :: DicFieldIndex m e -- EntityField e t
+data DicField m e   =  DicField 
+    { dfIndex       :: DicFieldIndex m e 
     , dfSettings    :: FieldSettings m
     , dfShort       :: Maybe (SomeMessage m)
     , dfKind        :: FieldKind
@@ -303,7 +289,6 @@ instance Show (EntityRef m e) where
 data EntityPlus m e = EntityPlus
     { _epEntity :: Entity e
     , _epRefs   :: [EntityRef m e]
-    -- import, _epRefs'  :: [()]
     }
 makeLenses ''EntityPlus
 

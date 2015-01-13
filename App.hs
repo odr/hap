@@ -2,18 +2,13 @@
 module App where
 
 import Settings              
--- import Settings.StaticFiles  
 import Database.Persist.Sql (ConnectionPool)
 import Hap.Dictionary.Import
-import Network.HTTP.Client.Conduit(Manager) --, HasHttpManager (getHttpManager))
--- import Yesod.Default.Config
+import Network.HTTP.Client.Conduit(Manager)
 import Yesod.Static
 
--- import qualified Settings
--- import           Settings (Extra (..))
 import Hap.Dictionary.Hap(Hap, HapMessage)
 import Yesod.Core.Types (Logger)
--- import qualified Database.Persist
 
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application

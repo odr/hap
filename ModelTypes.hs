@@ -6,11 +6,9 @@ import Hap.Dictionary.Import
 import Hap.Dictionary.FieldFormI()
 import Hap.Dictionary.EDSL
 import qualified Data.Char as C
--- import Database.Persist.TH
 import Database.Persist.Sql hiding (Single)
 import qualified Data.Text as T
 import Data.Fixed
--- import Safe(readMay)
 
 --------------------------------------------------
 
@@ -81,17 +79,6 @@ newtype EmailF = EmailF { unEmailF :: Text } deriving (Eq, Show)
 instance PersistField EmailF where
     toPersistValue = PersistText . unEmailF
     fromPersistValue = fmap EmailF . fromPersistValue
-    {-
-    fromPersistValue (PersistText txt) | check = Right $ EmailF txt 
-      where
-        check   = all ($ txt)
-                [ not . T.null . snd . T.breakOn (".") . snd . T.breakOn ("@") 
-                , (==Nothing) . T.find C.isSpace
-                ]
-    fromPersistValue v 
-        = Left $ "EmailF should be in form '<...>@<...>.<...>' without any spaces. Invalid EmailF value: " 
-                <> T.pack (show v)
-    -}
 
 instance PersistFieldSql EmailF where
     sqlType _ = SqlString
