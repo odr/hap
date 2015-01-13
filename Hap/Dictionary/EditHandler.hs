@@ -2,7 +2,7 @@
 module Hap.Dictionary.EditHandler(getEditR, postEditR, deleteEditR) where
     
 import Hap.Dictionary.Import
-import Control.Monad(replicateM)
+-- import Control.Monad(replicateM)
 import qualified Data.Text as T
 
 

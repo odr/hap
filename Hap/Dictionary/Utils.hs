@@ -1,14 +1,14 @@
-{-# LANGUAGE ScopedTypeVariables, FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables, FlexibleContexts, OverloadedStrings, NoImplicitPrelude #-}
 module Hap.Dictionary.Utils where
 
 import Hap.Dictionary.Import
-import Control.Monad(liftM2)
-import Data.List(sortBy)
+-- import Control.Monad(liftM2)
+-- import Data.List(sortBy)
 import qualified Data.Map as M
-import Data.Ord(comparing)
+-- import Data.Ord(comparing)
 import qualified Data.Text as T
-import Data.Time(formatTime)
-import System.Locale(defaultTimeLocale)
+-- import Data.Time(formatTime)
+-- import System.Locale(defaultTimeLocale)
 -- import Control.Lens
 
 showPersistValue :: PersistValue -> Text

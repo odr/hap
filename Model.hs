@@ -1,14 +1,11 @@
 {-# LANGUAGE DeriveGeneric, TemplateHaskell, MultiParamTypeClasses, TypeFamilies
     , ExistentialQuantification, DeriveDataTypeable, GeneralizedNewtypeDeriving #-}
-module Model (module Model, module ModelTypes) where
+module Model where
 
-import Yesod
-import Data.Text (Text)
+import ClassyPrelude.Yesod
 import Database.Persist.Quasi
-import Data.Typeable (Typeable)
-import Prelude
-import GHC.Generics(Generic(..))
 import ModelTypes
+
 
 -- You can define all of your database entities in the entities file.
 -- You can find more information on persistent and how to declare entities

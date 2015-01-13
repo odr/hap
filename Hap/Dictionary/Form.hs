@@ -1,9 +1,10 @@
-{-# LANGUAGE LambdaCase, RecordWildCards, ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase, RecordWildCards, ScopedTypeVariables, NoImplicitPrelude #-}
 module Hap.Dictionary.Form where
 
 import Hap.Dictionary.Import 
-import Control.Lens(traverse, ix, (^.), (.~))
+import Control.Lens(ix, (^.), (.~))
 import qualified Data.Traversable as TR
+import Data.List((!!))
 
 import Hap.Dictionary.Types
 -- import Hap.Dictionary.EntityPlus
@@ -94,5 +95,5 @@ $forall w <- reverse widgets
             compose (lr,e,ws) l = do
                 (r',w') <- epLtWForm l e
                 case r' of
-                    FormSuccess e' -> return (lr <> fmap (Last . Just) r', e', w':ws)
-                    _   -> return (lr <> fmap (Last . Just) r', e, w':ws)
+                    FormSuccess e' -> return (lr ++ fmap (Last . Just) r', e', w':ws)
+                    _   -> return (lr ++ fmap (Last . Just) r', e, w':ws)

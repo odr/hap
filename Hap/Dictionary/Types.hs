@@ -2,24 +2,25 @@
 			, FlexibleInstances, LambdaCase, TemplateHaskell, QuasiQuotes, MultiParamTypeClasses
 			, FlexibleContexts, OverloadedStrings, RecordWildCards
             , FunctionalDependencies, DeriveFunctor, DeriveFoldable, DeriveTraversable
-            -- , DataKinds, TypeOperators
+            , NoImplicitPrelude
             #-}
             -- , PolyKinds #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Hap.Dictionary.Types where
 
 import Hap.Dictionary.Import
+import GHC.Read(Read(..))
 import Control.Lens
-import Control.Monad(liftM2, join)
+-- import Control.Monad(liftM2, join)
 import qualified Control.Monad.Trans.State as State
 import Control.Monad.Trans.Writer(WriterT(..))
 -- import Data.Monoid(Endo(..))
 import qualified Data.Set as S
 import qualified Data.Text as T
 import Data.Typeable
-import           Data.Map (Map)
+-- import           Data.Map (Map)
 import qualified Data.Map as M
-import Data.Char(toLower)
+-- import Data.Char(toLower)
 import qualified Data.Foldable as FD
 import qualified Data.Traversable as TR
 
@@ -43,7 +44,7 @@ class   ( Yesod m, RenderMessage m FormMessage, RenderMessage m HapMessage
 --     getSubDic :: Dictionary m e -> SubDic m p e
 
 class HasMapDict m where
-	getMapDict :: Map String (SomeDictionary m)
+    getMapDict :: Map String (SomeDictionary m)
     -- getDict :: String -> SomeDictionary m
 
 data Layout t 
@@ -114,7 +115,7 @@ instance Ord (SomeDictionary m) where
     compare = compare `on` show
 
 instance HasMapDict m => Read (SomeDictionary m) where
-    readsPrec _ = \s -> [(maybe (error "Can't parse Dictionary") id $ M.lookup (map toLower s) getMapDict, "")]
+    readsPrec _ = \s -> [(maybe (error "Can't parse Dictionary") id $ M.lookup (toLower s) getMapDict, "")]
 
 ----- Fields ----    
 
@@ -179,7 +180,7 @@ instance FieldToText m a => FieldToText m (Maybe a) where
 
 entityToTexts :: (HasDictionary m a, YesodHap m) => [m] -> Entity a -> HandlerT m IO [Maybe Text]
 entityToTexts (_ :: [m]) (ent0 :: Entity a) = fmap ((Just (showPersistField $ entityKey ent0):) . reverse)
-                    $ State.execStateT  (mapM_ (\df -> fToT df ent0) fields
+                    $ State.execStateT  (mapM_ (\df -> fToT df ent0 >> return ()) fields
                                         ) [] 
   where
     fields = case getDictionary :: Dictionary m a of
@@ -212,11 +213,11 @@ instance (PersistEntity a, Default a) => Default (Entity a) where
     def = Entity def def
 
 instance (PersistEntity e, Typeable e, HasDictionary m a, YesodHap m) 
-		=> FieldForm m e (Key a) where
+        => FieldForm m e (Key a) where
     fieldAForm _ fs ma = areq (dicKeyField fs (mempty :: [a])) fs ma
 
 instance (PersistEntity e, HasDictionary m a, YesodHap m) 
-		=> FieldForm m e (Maybe (Key a)) where
+        => FieldForm m e (Maybe (Key a)) where
     fieldAForm _ fs ma = debugFormInput "Maybe (Key a)" ma $ aopt (dicKeyField fs (mempty :: [a])) fs ma
 
 dicKeyField :: (HasDictionary m a

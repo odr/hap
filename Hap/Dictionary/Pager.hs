@@ -2,8 +2,8 @@ module Hap.Dictionary.Pager where
 
 import Hap.Dictionary.Import 
 import qualified Data.Text as T
-import Safe(readMay)
-import Control.Monad.Catch(MonadThrow)
+-- import Safe(readMay)
+-- import Control.Monad.Catch(MonadThrow)
 
 import Hap.Dictionary.Hap
 

@@ -10,7 +10,7 @@ import qualified Data.Char as C
 import Database.Persist.Sql hiding (Single)
 import qualified Data.Text as T
 import Data.Fixed
-import Safe(readMay)
+-- import Safe(readMay)
 
 --------------------------------------------------
 

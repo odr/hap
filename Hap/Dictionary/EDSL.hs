@@ -12,7 +12,7 @@ module Hap.Dictionary.EDSL
 
 import Hap.Dictionary.Import as Hap.Dictionary.EDSL
 import qualified Control.Monad.Trans.State as S
-import Data.List(find)
+-- import Data.List(find)
 import qualified Data.Traversable as TR
 import Data.Typeable(Typeable)
 import Hap.Dictionary.Utils(showEF)
@@ -87,7 +87,7 @@ hidden :: DicField m a -> DicField m a
 hidden f = f { dfKind = Hidden }
 
 readonly :: DicField m a -> DicField m a
-readonly f = f { dfKind = ReadOnly <> dfKind f }
+readonly f = f { dfKind = ReadOnly ++ dfKind f }
 
 recShowField :: PersistEntity e => EntityField e t -> Dictionary m e -> Dictionary m e
 recShowField ef dic = dic { dShowFunc = showEF ef }

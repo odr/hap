@@ -1,6 +1,8 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 module Handler.List(getListR, postListR) where
 
 import Import
+import Prelude(read)
 import qualified  Hap.Dictionary.ListHandler as LH
 
 getListR :: String -> HandlerT App IO Html

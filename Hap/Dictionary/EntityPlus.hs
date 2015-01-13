@@ -1,12 +1,11 @@
-{-# LANGUAGE ExistentialQuantification, RecordWildCards, ScopedTypeVariables #-}
+{-# LANGUAGE ExistentialQuantification, RecordWildCards, ScopedTypeVariables, NoImplicitPrelude #-}
 module Hap.Dictionary.EntityPlus where
 
 import Hap.Dictionary.Import 
 
-import Control.Monad(when)
 import Control.Monad.Trans.Writer(WriterT(..))
 import Control.Monad.Trans.Except(ExceptT(..), throwE)
-import Data.List((\\), find)
+import qualified Data.List as L
 import qualified Data.Text as T
 
 import Hap.Dictionary.Types
@@ -81,9 +80,9 @@ putEntityPlus il mbold (ep :: EntityPlus m e)
                 ents' <- lift$ selectList [filterFK ef key] []
                 lift $ lift $ $logDebug $ debugMess "Dictionary {}. Delete keys: {}" 
                     ( Shown (getDictionary :: Dictionary m e)
-                    , Shown $ map toPathPiece $ map entityKey ents' \\ map (entityKey . _epEntity) eps
+                    , Shown $ map toPathPiece $ map entityKey ents' L.\\ map (entityKey . _epEntity) eps
                     )
-                lift $ delEntities $ map entityKey ents' \\ map (entityKey . _epEntity) eps
+                lift $ delEntities $ map entityKey ents' L.\\ map (entityKey . _epEntity) eps
                 EntityRef ef <$> 
                     mapM    (\ep' -> putEntityPlus il
                                         (entityVal <$> find ((== entityKey (_epEntity ep')) . entityKey) ents') 
@@ -92,6 +91,6 @@ putEntityPlus il mbold (ep :: EntityPlus m e)
 
 delEntities :: (HasDictionary m e, PersistQuery (YesodPersistBackend m)) => [Key e] -> YesodDB m ()
 -- TODO: optionally delete cascade
-delEntities keys 
-    | null keys = return ()
-    | otherwise = deleteWhere $ map (persistIdField ==.) keys
+delEntities ks 
+    | null ks = return ()
+    | otherwise = deleteWhere $ map (persistIdField ==.) ks

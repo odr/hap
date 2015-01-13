@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Dics where
 
-import Data.Char(toLower)
 import qualified Data.Map as M
 
 import Hap.Dictionary.EDSL
@@ -10,7 +9,7 @@ import Model
 import Foundation
 
 instance HasMapDict App where
-    getMapDict =  M.fromList $ map (map toLower . show &&& id)
+    getMapDict =  M.fromList $ map (toLower . show &&& id)
         [ someDic (def :: [User])
         , someDic (def :: [Email])
         ]

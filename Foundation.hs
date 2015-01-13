@@ -2,31 +2,20 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Foundation (module App, module Foundation) where
 
-import Hap.Dictionary.Import
-
 import App
-
+import Import.NoFoundation
 import qualified Data.Text as T
-import Text.Hamlet (hamletFile)
-import Text.Jasmine (minifym)
-import Yesod
-import Yesod.Auth
---import Network.HTTP.Client.Conduit (Manager, HasHttpManager (getHttpManager))
-import qualified Yesod.Auth.BrowserId as BID
-import Yesod.Default.Config
-import Yesod.Default.Util (addStaticContentExternal)
+import Database.Persist.Sql (runSqlPool)
+import Text.Hamlet          (hamletFile)
+import Text.Jasmine         (minifym)
+import Yesod.Auth.BrowserId (authBrowserId)
+import Yesod.Default.Util   (addStaticContentExternal)
 import Yesod.Form.Jquery(YesodJquery(..))
-import qualified Settings
-import           Settings (widgetFile, Extra (..))
-import Yesod.Static
 
-import Hap.Dictionary.EDSL
+import Hap.Dictionary.EDSL(YesodHap)
 
-import Model
--- import           Settings (widgetFile, Extra (..))
-import Settings.Development (development)
-import Settings.StaticFiles
-
+instance HasHttpManager App where
+    getHttpManager = appHttpManager
 
 -- This is where we define all of the routes in our application. For a full
 -- explanation of the syntax, please see:
@@ -37,12 +26,15 @@ import Settings.StaticFiles
 -- explanation for this split.
 mkYesodData "App" $(parseRoutesFile "config/routes")
 
+-- | A convenient synonym for creating forms.
 type Form x = Html -> MForm (HandlerT App IO) (FormResult x, Widget)
 
 -- Please see the documentation for the Yesod typeclass. There are a number
 -- of settings which can be configured by overriding methods here.
 instance Yesod App where
-    approot = ApprootMaster $ appRoot . settings
+    -- Controls the base of generated URLs. For more information on modifying,
+    -- see: https://github.com/yesodweb/yesod/wiki/Overriding-approot
+    approot = ApprootMaster $ appRoot . appSettings
 
     -- Store session data on the client in encrypted cookies,
     -- default session idle timeout is 120 minutes
@@ -61,26 +53,23 @@ instance Yesod App where
         -- you to use normal widget features in default-layout.
 
         pc <- widgetToPageContent $ do
-            $(combineStylesheets 'StaticR
+            {- $(combineStylesheets 'StaticR
                 [ css_normalize_css
                 , css_bootstrap_css
                 ])
+            -- addStylesheet $ StaticR css_normalize_css
+            -}
+            addStylesheet $ StaticR css_bootstrap_css
             $logDebug $ either (T.pack . show) id $ urlJqueryJs master
             addScriptEither $ urlJqueryJs master
             addScriptEither $ urlJqueryUiJs master
             $(widgetFile "default-layout")
         withUrlRenderer $(hamletFile "templates/default-layout-wrapper.hamlet")
 
-    -- This is done to provide an optimization for serving static files from
-    -- a separate domain. Please see the staticRoot setting in Settings.hs
-    urlRenderOverride y (StaticR s) =
-        Just $ uncurry (joinPath y (Settings.staticRoot $ settings y)) $ renderRoute s
-    urlRenderOverride _ _ = Nothing
-
     -- The page to be redirected to when authentication is required.
     authRoute _ = Just $ AuthR LoginR
 
-    -- Routes not requiring authenitcation.
+    -- Routes not requiring authentication.
     isAuthorized (AuthR _) _ = return Authorized
     isAuthorized FaviconR _ = return Authorized
     isAuthorized RobotsR _ = return Authorized
@@ -91,21 +80,27 @@ instance Yesod App where
     -- and names them based on a hash of their content. This allows
     -- expiration dates to be set far in the future without worry of
     -- users receiving stale content.
-    addStaticContent =
-        addStaticContentExternal (if development then Right else minifym) genFileName Settings.staticDir (StaticR . flip StaticRoute [])
+    addStaticContent ext mime content = do
+        master <- getYesod
+        let staticDir = appStaticDir $ appSettings master
+        addStaticContentExternal
+            minifym
+            genFileName
+            staticDir
+            (StaticR . flip StaticRoute [])
+            ext
+            mime
+            content
       where
         -- Generate a unique filename based on the content itself
-        genFileName lbs
-            | development = "autogen-" ++ base64md5 lbs
-            | otherwise   = base64md5 lbs
-
-    -- Place Javascript at bottom of the body tag so the rest of the page loads first
-    jsLoader _ = BottomOfBody
+        genFileName lbs = "autogen-" ++ base64md5 lbs
 
     -- What messages should be logged. The following includes all messages when
     -- in development, and warnings and errors in production.
-    shouldLog _ _source level =
-        development || level == LevelWarn || level == LevelError
+    shouldLog app _source level =
+        appShouldLogAll (appSettings app)
+            || level == LevelWarn
+            || level == LevelError
 
     makeLogger = return . appLogger
 
@@ -114,11 +109,11 @@ instance YesodJquery App
 -- How to run database actions.
 instance YesodPersist App where
     type YesodPersistBackend App = SqlBackend
-    runDB = defaultRunDB persistConfig connPool
+    runDB action = do
+        master <- getYesod
+        runSqlPool action $ appConnPool master
 instance YesodPersistRunner App where
-    getDBRunner = defaultGetDBRunner connPool
-
-instance YesodAuthPersist App
+    getDBRunner = defaultGetDBRunner appConnPool
 
 instance YesodAuth App where
     type AuthId App = UserId
@@ -127,6 +122,8 @@ instance YesodAuth App where
     loginDest _ = HomeR
     -- Where to send a user after logout
     logoutDest _ = HomeR
+    -- Override the above two destinations when a Referer: header is present
+    redirectToReferer _ = True
 
     getAuthId creds = runDB $ do
         x <- getBy $ UniqueUser $ credsIdent creds
@@ -141,47 +138,19 @@ instance YesodAuth App where
                     }
 
     -- You can add other plugins like BrowserID, email or OAuth here
-    authPlugins _ = [BID.authBrowserId BID.def]
+    authPlugins _ = [authBrowserId def]
 
-    authHttpManager = httpManager
+    authHttpManager = getHttpManager
 
--- | Get the 'Extra' value, used to hold data from the settings.yml file.
-getExtra :: Handler Extra
-getExtra = fmap (appExtra . settings) getYesod
+instance YesodAuthPersist App
 
--- Note: previous versions of the scaffolding included a deliver function to
--- send emails. Unfortunately, there are too many different options for us to
--- give a reasonable default. Instead, the information is available on the
--- wiki:
+-- Note: Some functionality previously present in the scaffolding has been
+-- moved to documentation in the Wiki. Following are some hopefully helpful
+-- links:
 --
 -- https://github.com/yesodweb/yesod/wiki/Sending-email
+-- https://github.com/yesodweb/yesod/wiki/Serve-static-files-from-a-separate-domain
+-- https://github.com/yesodweb/yesod/wiki/i18n-messages-in-the-scaffolding
+
 instance YesodHap App
 
--- #include "Dics.hs"
-{-
-instance HasMapDict App where
-    getMapDict =  M.fromList $ map (map toLower . show &&& id)
-        [ someDic ([] :: [User])
-        , someDic ([] :: [Email])
-        ]
-instance Default User
-instance HasDictionary App User where
-    getDictionary
-        = mkDic MsgUsers
-            [ fld UserId
-            , fld UserIdent     # label MsgIdent
-            , fld UserPassword  # label MsgPassword
-            ]
-            # recShowField UserIdent
-
-instance Default Email
-instance HasDictionary App Email where
-    getDictionary
-        = mkDic MsgEmails
-            [ fld EmailId
-            , fld EmailUser     # label MsgUser
-            , fld EmailEmail    # label MsgEmail
-            , fld EmailVerkey   # label MsgVerkey
-                                # readonly
-            ]
--}

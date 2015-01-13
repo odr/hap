@@ -2,7 +2,6 @@
 module Hap.Dictionary.ListHandler where
 
 import Hap.Dictionary.Import
-import Control.Monad(liftM2)
 import qualified Data.Text as T
 
 import Hap.Dictionary.Types
